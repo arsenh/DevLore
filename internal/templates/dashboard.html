@@ -1,0 +1,24 @@
+{{/* templates/dashboard.html */}}
+{{define "title"}}Dashboard{{end}}
+
+{{define "content"}}
+<div class="container">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <a href="/articles/new" class="btn btn-primary">+ New Article</a>
+  </div>
+
+  {{if .Articles}}
+  <ul class="article-list">
+    {{range .Articles}}
+    <li class="article-item">
+      <a href="/articles/{{.ID}}" class="article-title">{{.Title}}</a>
+      <p class="article-meta">Updated: {{.UpdatedAt}}</p>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="empty-state">No articles yet.</p>
+  {{end}}
+</div>
+{{end}}

@@ -1,0 +1,22 @@
+{{/* templates/new-article.html */}}
+{{define "title"}}New Article{{end}}
+
+{{define "content"}}
+<div class="container">
+  <h2>Create New Article</h2>
+
+  <form method="post" action="/articles/new" class="article-form">
+    <div class="form-group">
+      <label for="title">Title</label>
+      <input type="text" id="title" name="title" placeholder="Enter article title" required>
+    </div>
+
+    <div class="form-group">
+      <label for="content">Content</label>
+      <textarea id="content" name="content" placeholder="Write your article content" rows="15" required></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create Article</button>
+  </form>
+</div>
+{{end}}

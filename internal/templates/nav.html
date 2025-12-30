@@ -1,0 +1,20 @@
+{{/* templates/nav.html */}}
+{{define "nav"}}
+<header>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="/dashboard" class="navbar-brand">DevLore</a>
+      <a href="/dashboard" class="navbar-link">Dashboard</a>
+      <a href="/articles/new" class="navbar-link">New Article</a>
+      <a href="/search" class="navbar-link">Search</a>
+    </div>
+
+    <div class="navbar-right">
+      <span class="navbar-user">Arsen Hovhannisyan</span>
+      <form action="/logout" method="post" class="logout-form">
+        <button type="submit" class="btn btn-danger">Logout</button>
+      </form>
+    </div>
+  </nav>
+</header>
+{{end}}
