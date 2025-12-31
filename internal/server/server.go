@@ -1,8 +1,10 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
+
+	"github.com/arsenh/DevLore/internal/logger"
+	"github.com/arsenh/DevLore/internal/middleware"
 )
 
 type HTTPServer struct {
@@ -20,11 +22,11 @@ func NewHTTPServer(addr string) *HTTPServer {
 func (s *HTTPServer) Start() {
 	server := http.Server{
 		Addr:    s.Addr,
-		Handler: s.Routes,
+		Handler: middleware.Logging(s.Routes),
 	}
 
 	err := server.ListenAndServe()
 	if err != nil {
-		fmt.Println("unable to start server on addr:", s.Addr)
+		logger.L().WithError(err).Errorf("unable to start server on addr: %s", s.Addr)
 	}
 }
