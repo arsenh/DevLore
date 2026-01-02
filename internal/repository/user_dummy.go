@@ -66,7 +66,7 @@ func (d DummyUserRepository) Delete(ctx context.Context, id int) error {
 	}
 
 	if index == -1 {
-		return fmt.Errorf("user %d not found", id)
+		return fmt.Errorf("user with id = %d not found", id)
 	}
 
 	d.db = append(d.db[:index], d.db[index+1:]...)
