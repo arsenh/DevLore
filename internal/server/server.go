@@ -5,28 +5,30 @@ import (
 
 	"github.com/arsenh/DevLore/internal/logger"
 	"github.com/arsenh/DevLore/internal/middleware"
+	"github.com/arsenh/DevLore/internal/service"
 )
 
 type HTTPServer struct {
-	Addr   string
-	Routes *http.ServeMux
+	addr   string
+	routes *http.ServeMux
 }
 
 func NewHTTPServer(addr string) *HTTPServer {
+	articleService := service.NewArticleService()
 	return &HTTPServer{
-		Addr:   addr,
-		Routes: GetRoutes(),
+		addr:   addr,
+		routes: NewRoutes(articleService).GetRoutes(),
 	}
 }
 
 func (s *HTTPServer) Start() {
 	server := http.Server{
-		Addr:    s.Addr,
-		Handler: middleware.Logging(s.Routes),
+		Addr:    s.addr,
+		Handler: middleware.Logging(s.routes),
 	}
 
 	err := server.ListenAndServe()
 	if err != nil {
-		logger.L().WithError(err).Errorf("unable to start server on addr: %s", s.Addr)
+		logger.L().WithError(err).Errorf("unable to start server on addr: %s", s.addr)
 	}
 }
