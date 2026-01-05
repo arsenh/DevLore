@@ -1,0 +1,21 @@
+{{/* templates/error-500.html */}}
+{{define "title"}}Server Error{{end}}
+
+{{define "content"}}
+<div class="container">
+  <div class="article-view">
+    <h1>500 — Something Went Wrong</h1>
+
+    <div class="article-content">
+      <p>
+        We ran into an unexpected problem. Our team has been notified (or will be 😉).
+      </p>
+      <p>Please try again in a moment.</p>
+    </div>
+
+    <div class="article-actions">
+      <a href="/dashboard" class="btn btn-primary">Back to Dashboard</a>
+    </div>
+  </div>
+</div>
+{{end}}

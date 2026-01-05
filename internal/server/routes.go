@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/service"
@@ -29,16 +31,18 @@ func (r *Routes) GetRoutes() *http.ServeMux {
 	routes.HandleFunc("/", r.rootHandler)
 	routes.HandleFunc("/dashboard", r.dashboardHandler)
 	routes.HandleFunc("/articles/new", r.newArticleHandler)
+	routes.HandleFunc("/articles/", r.viewArticleHandler)
 	return routes
 }
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
 	dashboardData, err := r.ArticleService.GetDashboardData(request.Context())
 	if err != nil {
-		panic("Error not handled yet.")
-		//TODO: add correct error handling, maybe 404 page or something like that.
+		templates.InternalServerError(writer, err)
 	}
-	templates.RenderHTML(writer, templates.Dashboard, dashboardData)
+	if err := templates.Render(writer, http.StatusOK, templates.DashboardTemplate, dashboardData); err != nil {
+		templates.InternalServerError(writer, err)
+	}
 }
 
 func (r *Routes) rootHandler(writer http.ResponseWriter, request *http.Request) {
@@ -46,5 +50,26 @@ func (r *Routes) rootHandler(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (r *Routes) newArticleHandler(writer http.ResponseWriter, request *http.Request) {
-	templates.RenderHTML(writer, templates.NewArticle, nil)
+	templates.Render(writer, http.StatusOK, templates.NewArticleTemplate, nil)
+}
+
+func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	path := strings.TrimPrefix(request.URL.Path, "/articles/")
+	idStr := strings.Trim(path, "/")
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	data, err := r.ArticleService.GetArticleById(request.Context(), id)
+	if err != nil {
+		templates.NotFound(writer)
+		return
+	}
+
+	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, data); err != nil {
+		templates.InternalServerError(writer, err)
+	}
 }

@@ -11,12 +11,15 @@ import (
 )
 
 const (
-	Layout      = "layout"
-	Dashboard   = "dashboard.html"
-	NewArticle  = "new-article.html"
-	EditArticle = "edit-article.html"
-	ViewArticle = "view-article.html"
-	Search      = "search.html"
+	LayoutTemplate              = "layout"
+	DashboardTemplate           = "dashboard.html"
+	NewArticleTemplate          = "new-article.html"
+	EditArticleTemplate         = "edit-article.html"
+	ViewArticleTemplate         = "view-article.html"
+	Search                      = "search.html"
+	NotFoundTemplate            = "404.html"
+	BadRequestTemplate          = "400.html"
+	InternalServerErrorTemplate = "500.html"
 )
 
 var base *template.Template
@@ -28,32 +31,52 @@ func init() {
 	logger.L().Info("templates are parsed successfully")
 }
 
-func RenderHTML(w http.ResponseWriter, page string, data interface{}) {
-	// Clone the base template.
+func Render(w http.ResponseWriter, status int, page string, data interface{}) error {
+	//Clone the base layout template
 	tmpl, err := base.Clone()
 	if err != nil {
-		msg := fmt.Sprintf("failed to clone base template: %s", base.Name())
-		logger.L().WithError(err).Println(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return
+		return fmt.Errorf("clone base template %q: %w", base.Name(), err)
 	}
 
-	// Parse the specific page template into the clone.
+	//Parse the page template into the clone
 	fullPagePath := filepath.Join(config.TemplatesDir, page)
-	_, err = tmpl.ParseFiles(fullPagePath)
-	if err != nil {
-		msg := fmt.Sprintf("failed to parse page template: %s", fullPagePath)
-		logger.L().WithError(err).Println(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return
+
+	if _, err := tmpl.ParseFiles(fullPagePath); err != nil {
+		return fmt.Errorf("parse page template %q: %w", fullPagePath, err)
 	}
 
-	// Execute the layout with the data.
-	err = tmpl.ExecuteTemplate(w, Layout, data)
-	if err != nil {
-		msg := fmt.Sprintf("failed to execute template: %s", Layout)
-		logger.L().WithError(err).Println(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return
+	//At this point parsing succeeded — safe to write headers
+	w.WriteHeader(status)
+
+	//Execute the layout
+	if err := tmpl.ExecuteTemplate(w, LayoutTemplate, data); err != nil {
+		return fmt.Errorf("execute layout %q: %w", LayoutTemplate, err)
+	}
+
+	return nil
+}
+
+func BadRequest(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	if err := Render(w, http.StatusBadRequest, BadRequestTemplate, nil); err != nil {
+		logger.L().WithError(err).Error("rendering 400 page failed")
+	}
+}
+
+func NotFound(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
+
+	if err := Render(w, http.StatusNotFound, NotFoundTemplate, nil); err != nil {
+		logger.L().WithError(err).Error("rendering 404 page failed")
+	}
+}
+
+func InternalServerError(w http.ResponseWriter, err error) {
+	logger.L().WithError(err).Error("internal server error")
+
+	w.WriteHeader(http.StatusInternalServerError)
+
+	if renderErr := Render(w, http.StatusInternalServerError, InternalServerErrorTemplate, nil); renderErr != nil {
+		logger.L().WithError(renderErr).Error("rendering 500 page failed")
 	}
 }

@@ -5,7 +5,6 @@ import (
 )
 
 func main() {
-
 	httpServer := server.NewHTTPServer("localhost:8080")
 	httpServer.Start()
 }

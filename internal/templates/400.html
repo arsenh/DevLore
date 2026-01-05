@@ -1,0 +1,21 @@
+{{/* templates/error-400.html */}}
+{{define "title"}}Bad Request{{end}}
+
+{{define "content"}}
+<div class="container">
+  <div class="article-view">
+    <h1>400 — Bad Request</h1>
+    <p class="article-meta">
+      The request could not be processed. It looks like something was wrong with what was sent.
+    </p>
+
+    <div class="article-content">
+      <p>Please check the URL or try again.</p>
+    </div>
+
+    <div class="article-actions">
+      <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+    </div>
+  </div>
+</div>
+{{end}}
