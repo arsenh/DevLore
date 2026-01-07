@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/service"
 	"github.com/arsenh/DevLore/internal/templates"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type Routes struct {
@@ -21,18 +22,21 @@ func NewRoutes(service *service.ArticleService) *Routes {
 	}
 }
 
-func (r *Routes) GetRoutes() *http.ServeMux {
-	routes := http.NewServeMux()
+func (r *Routes) GetRoutes() http.Handler {
+	router := chi.NewRouter()
 
-	// setup file server
-	files := http.FileServer(http.Dir(config.PublicDir))
-	routes.Handle(fmt.Sprintf("/%s/", config.StaticDir), http.StripPrefix(fmt.Sprintf("/%s/", config.StaticDir), files))
+	fs := http.FileServer(http.Dir(config.PublicDir))
+	router.Handle(fmt.Sprintf("/%s/*", config.StaticDir), http.StripPrefix(fmt.Sprintf("/%s/", config.StaticDir), fs))
 
-	routes.HandleFunc("/", r.rootHandler)
-	routes.HandleFunc("/dashboard", r.dashboardHandler)
-	routes.HandleFunc("/articles/new", r.newArticleHandler)
-	routes.HandleFunc("/articles/", r.viewArticleHandler)
-	return routes
+	// global 404 not found page
+	router.NotFound(r.notFoundPage)
+
+	router.Get("/", r.rootHandler)
+	router.Get("/dashboard", r.dashboardHandler)
+	router.Get("/articles/{id}", r.viewArticleHandler)
+	router.Get("/articles/new", r.showNewArticleHandler)
+	router.Post("/articles/new", r.createNewArticleHandler)
+	return router
 }
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
@@ -49,51 +53,33 @@ func (r *Routes) rootHandler(writer http.ResponseWriter, request *http.Request) 
 	http.Redirect(writer, request, "/dashboard", http.StatusPermanentRedirect)
 }
 
-func (r *Routes) newArticleHandler(writer http.ResponseWriter, request *http.Request) {
-	if (request.Method != http.MethodGet) && (request.Method != http.MethodPost) {
-		templates.BadRequest(writer)
+func (r *Routes) showNewArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	// render form for new article creation
+	if err := templates.Render(writer, http.StatusOK, templates.NewArticleTemplate, nil); err != nil {
+		templates.InternalServerError(writer, err)
 	}
+}
 
+func (r *Routes) createNewArticleHandler(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 
-	switch request.Method {
-	case http.MethodGet:
-		// render form for new article creation
-		if err := templates.Render(writer, http.StatusOK, templates.NewArticleTemplate, nil); err != nil {
-			templates.InternalServerError(writer, err)
-		}
-		return
-	case http.MethodPost:
-		// parse user input data to create new article
-		if err := request.ParseForm(); err != nil {
-			templates.BadRequest(writer)
-			return
-		}
-		//TODO: need to get also UserId which created the article.
-		title := request.Form.Get("title")
-		content := request.Form.Get("content")
-		id, err := r.articleService.SaveArticle(ctx, title, content)
-		if err != nil {
-			templates.InternalServerError(writer, err)
-			return
-		}
-		view, err := r.articleService.GetArticleById(ctx, id)
-		if err != nil {
-			//this case is internal error, because, we must get article that created previously
-			templates.InternalServerError(writer, err)
-			return
-		}
-		err = templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, view)
-		return
-	default:
+	if err := request.ParseForm(); err != nil {
 		templates.BadRequest(writer)
+		return
 	}
-
+	//TODO: need to get also UserId which created the article.
+	title := request.Form.Get("title")
+	content := request.Form.Get("content")
+	id, err := r.articleService.SaveArticle(ctx, title, content)
+	if err != nil {
+		templates.InternalServerError(writer, err)
+		return
+	}
+	http.Redirect(writer, request, fmt.Sprintf("/articles/%d", id), http.StatusSeeOther)
 }
 
 func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Request) {
-	path := strings.TrimPrefix(request.URL.Path, "/articles/")
-	idStr := strings.Trim(path, "/")
+	idStr := chi.URLParam(request, "id")
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -110,4 +96,8 @@ func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Re
 	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, data); err != nil {
 		templates.InternalServerError(writer, err)
 	}
+}
+
+func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
+	templates.NotFound(writer)
 }

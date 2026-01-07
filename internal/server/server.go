@@ -10,7 +10,7 @@ import (
 
 type HTTPServer struct {
 	addr   string
-	routes *http.ServeMux
+	routes http.Handler
 }
 
 func NewHTTPServer(addr string) *HTTPServer {
