@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/arsenh/DevLore/internal/logger"
-	"github.com/arsenh/DevLore/internal/middleware"
 	"github.com/arsenh/DevLore/internal/service"
 )
 
@@ -23,8 +22,9 @@ func NewHTTPServer(addr string) *HTTPServer {
 
 func (s *HTTPServer) Start() {
 	server := http.Server{
-		Addr:    s.addr,
-		Handler: middleware.Logging(s.routes),
+		Addr: s.addr,
+		//Handler: middleware.Logging(s.routes),
+		Handler: s.routes,
 	}
 
 	err := server.ListenAndServe()

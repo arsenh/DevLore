@@ -6,9 +6,11 @@ import (
 	"strconv"
 
 	"github.com/arsenh/DevLore/internal/config"
+	"github.com/arsenh/DevLore/internal/logger"
 	"github.com/arsenh/DevLore/internal/service"
 	"github.com/arsenh/DevLore/internal/templates"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -24,6 +26,14 @@ func NewRoutes(service *service.ArticleService) *Routes {
 
 func (r *Routes) GetRoutes() http.Handler {
 	router := chi.NewRouter()
+
+	// setup logrus for requests
+	logger := logger.L()
+	chiLogger := middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		Logger: logger,
+	})
+
+	router.Use(chiLogger)
 
 	fs := http.FileServer(http.Dir(config.PublicDir))
 	router.Handle(fmt.Sprintf("/%s/*", config.StaticDir), http.StripPrefix(fmt.Sprintf("/%s/", config.StaticDir), fs))
