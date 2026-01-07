@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,4 +16,9 @@ func init() {
 
 func L() *log.Logger {
 	return log.StandardLogger()
+}
+
+func LogAndErr(msg string, args ...interface{}) error {
+	L().Errorf(msg, args)
+	return fmt.Errorf(msg, args)
 }

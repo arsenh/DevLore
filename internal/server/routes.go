@@ -28,9 +28,8 @@ func (r *Routes) GetRoutes() http.Handler {
 	router := chi.NewRouter()
 
 	// setup logrus for requests
-	logger := logger.L()
 	chiLogger := middleware.RequestLogger(&middleware.DefaultLogFormatter{
-		Logger: logger,
+		Logger: logger.L(),
 	})
 
 	router.Use(chiLogger)
@@ -46,7 +45,12 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/articles/{id}", r.viewArticleHandler)
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
+	router.Post("/articles/{id}/delete", r.deleteArticleHandler)
 	return router
+}
+
+func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
+	templates.NotFound(writer)
 }
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
@@ -108,6 +112,18 @@ func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Re
 	}
 }
 
-func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
-	templates.NotFound(writer)
+func (r *Routes) deleteArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	idStr := chi.URLParam(request, "id")
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	if err = r.articleService.DeleteArticleById(request.Context(), id); err != nil {
+		templates.InternalServerError(writer, err)
+	}
+
+	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }

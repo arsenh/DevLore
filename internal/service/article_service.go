@@ -55,7 +55,7 @@ func (s *ArticleService) GetDashboardData(ctx context.Context) (*views.Dashboard
 func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.ArticleView, error) {
 	article, err := s.articleRepository.FindByID(ctx, id)
 	if err != nil {
-		logger.L().Infof("the article id = %d not found", id)
+		logger.L().Warnf("the article id = %d not found", id)
 		return nil, err
 	}
 
@@ -96,7 +96,16 @@ func (s *ArticleService) SaveArticle(ctx context.Context, title string, content 
 	}
 
 	if err := s.articleRepository.Create(ctx, newArticle); err != nil {
-		return -1, fmt.Errorf("failed to store new article in database")
+		return -1, logger.LogAndErr("failed to store new article in database")
 	}
 	return id, nil
+}
+
+func (s *ArticleService) DeleteArticleById(ctx context.Context, id int) error {
+	//TODO: Need to check userId, only article owner can delete!
+	err := s.articleRepository.Delete(ctx, id)
+	if err != nil {
+		return logger.LogAndErr("failed to delete article from database")
+	}
+	return nil
 }
