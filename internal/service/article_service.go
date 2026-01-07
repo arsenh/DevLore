@@ -109,3 +109,47 @@ func (s *ArticleService) DeleteArticleById(ctx context.Context, id int) error {
 	}
 	return nil
 }
+
+func (s *ArticleService) EditArticleById(ctx context.Context, id int, title string, content string) (*views.ArticleView, error) {
+	//TODO: Need to check userId, only article owner can edit!
+	article, err := s.articleRepository.FindByID(ctx, id)
+	if err != nil {
+		return nil, logger.LogAndErr("failed to get article by id = ", id)
+	}
+
+	newArticle := model.Article{
+		ID:        article.ID,
+		Title:     title,
+		Content:   content,
+		UserId:    article.UserId,
+		CreatedAt: article.CreatedAt,
+		UpdatedAt: time.Now(),
+	}
+
+	//TODO: optimize to have direct update function in repository.
+	if err := s.DeleteArticleById(ctx, id); err != nil {
+		return nil, logger.LogAndErr("failed to delete article by id = ", id)
+	}
+
+	if err := s.articleRepository.Create(ctx, &newArticle); err != nil {
+		return nil, logger.LogAndErr("failed to add updated article by id = ", id)
+	}
+
+	//TODO: update this to get current login user FullName
+	user, _ := s.userRepository.FindByID(ctx, 11)
+
+	view := &views.ArticleView{
+		BaseView: views.BaseView{
+			UserName: user.FullName,
+		},
+		Article: views.ArticleFullViewItem{
+			ID:        newArticle.ID,
+			Title:     newArticle.Title,
+			Content:   newArticle.Content,
+			CreatedAt: newArticle.CreatedAt,
+			UpdatedAt: newArticle.UpdatedAt,
+		},
+	}
+
+	return view, nil
+}

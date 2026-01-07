@@ -46,7 +46,20 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
 	router.Post("/articles/{id}/delete", r.deleteArticleHandler)
+	router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
+	router.Post("/articles/{id}/edit", r.editArticleHandler)
+
 	return router
+}
+
+func (r *Routes) retrieveId(request *http.Request) (int, error) {
+	idStr := chi.URLParam(request, "id")
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return -1, logger.LogAndErr("id cannot be parsed into integer")
+	}
+	return id, nil
 }
 
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
@@ -57,9 +70,11 @@ func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Requ
 	dashboardData, err := r.articleService.GetDashboardData(request.Context())
 	if err != nil {
 		templates.InternalServerError(writer, err)
+		return
 	}
 	if err := templates.Render(writer, http.StatusOK, templates.DashboardTemplate, dashboardData); err != nil {
 		templates.InternalServerError(writer, err)
+		return
 	}
 }
 
@@ -93,9 +108,7 @@ func (r *Routes) createNewArticleHandler(writer http.ResponseWriter, request *ht
 }
 
 func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Request) {
-	idStr := chi.URLParam(request, "id")
-
-	id, err := strconv.Atoi(idStr)
+	id, err := r.retrieveId(request)
 	if err != nil {
 		templates.BadRequest(writer)
 		return
@@ -113,12 +126,9 @@ func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Re
 }
 
 func (r *Routes) deleteArticleHandler(writer http.ResponseWriter, request *http.Request) {
-	idStr := chi.URLParam(request, "id")
-
-	id, err := strconv.Atoi(idStr)
+	id, err := r.retrieveId(request)
 	if err != nil {
 		templates.BadRequest(writer)
-		return
 	}
 
 	if err = r.articleService.DeleteArticleById(request.Context(), id); err != nil {
@@ -126,4 +136,54 @@ func (r *Routes) deleteArticleHandler(writer http.ResponseWriter, request *http.
 	}
 
 	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+}
+
+func (r *Routes) viewEditArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	id, err := r.retrieveId(request)
+	if err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	view, err := r.articleService.GetArticleById(request.Context(), id)
+	if err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	if err := templates.Render(writer, http.StatusOK, templates.EditArticleTemplate, view); err != nil {
+		templates.InternalServerError(writer, err)
+	}
+}
+
+func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	id, err := r.retrieveId(request)
+	if err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	_, err = r.articleService.GetArticleById(request.Context(), id)
+	if err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	if err := request.ParseForm(); err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	title := request.Form.Get("title")
+	content := request.Form.Get("content")
+
+	view, err := r.articleService.EditArticleById(request.Context(), id, title, content)
+	if err != nil {
+		templates.InternalServerError(writer, err)
+		return
+	}
+
+	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, view); err != nil {
+		templates.InternalServerError(writer, err)
+	}
 }
