@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/arsenh/DevLore/internal/logger"
 	"github.com/arsenh/DevLore/internal/model"
@@ -74,4 +76,27 @@ func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.Art
 	}
 
 	return view, nil
+}
+
+func (s *ArticleService) SaveArticle(ctx context.Context, title string, content string) (int, error) {
+	//TODO: this function my be receive also current UserID, but for now it will be hardcoded.
+	userId := 777 //TODO: remove this value, its for testing in dummy repository.
+	id := 777     // TODO: this is article id, which needs to be generated in this place.
+	if title == "" || content == "" {
+		return -1, fmt.Errorf("the title and content of article must be not empty")
+	}
+
+	newArticle := &model.Article{
+		ID:        id,
+		Title:     title,
+		Content:   content,
+		UserId:    userId,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := s.articleRepository.Create(ctx, newArticle); err != nil {
+		return -1, fmt.Errorf("failed to store new article in database")
+	}
+	return id, nil
 }

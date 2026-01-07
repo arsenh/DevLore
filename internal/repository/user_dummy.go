@@ -28,7 +28,7 @@ func NewDummyUserRepository() *DummyUserRepository {
 	}
 }
 
-func (d DummyUserRepository) FindByID(ctx context.Context, id int) (*model.User, error) {
+func (d *DummyUserRepository) FindByID(ctx context.Context, id int) (*model.User, error) {
 	for _, user := range d.db {
 		if user.ID == id {
 			return &user, nil
@@ -37,7 +37,7 @@ func (d DummyUserRepository) FindByID(ctx context.Context, id int) (*model.User,
 	return nil, fmt.Errorf("user with id = %d not found", id)
 }
 
-func (d DummyUserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
+func (d *DummyUserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	for _, user := range d.db {
 		if user.Email == email {
 			return &user, nil
@@ -46,16 +46,16 @@ func (d DummyUserRepository) FindByEmail(ctx context.Context, email string) (*mo
 	return nil, fmt.Errorf("user with email = %s not found", email)
 }
 
-func (d DummyUserRepository) Create(ctx context.Context, u *model.User) error {
+func (d *DummyUserRepository) Create(ctx context.Context, u *model.User) error {
 	d.db = append(d.db, *u)
 	return nil
 }
 
-func (d DummyUserRepository) List(ctx context.Context) ([]model.User, error) {
+func (d *DummyUserRepository) List(ctx context.Context) ([]model.User, error) {
 	return d.db, nil
 }
 
-func (d DummyUserRepository) Delete(ctx context.Context, id int) error {
+func (d *DummyUserRepository) Delete(ctx context.Context, id int) error {
 	index := -1
 
 	for i, user := range d.db {

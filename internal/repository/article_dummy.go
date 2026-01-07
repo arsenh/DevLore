@@ -100,7 +100,7 @@ func NewDummyArticleRepository() *DummyArticleRepository {
 	}
 }
 
-func (d DummyArticleRepository) FindByID(ctx context.Context, id int) (*model.Article, error) {
+func (d *DummyArticleRepository) FindByID(ctx context.Context, id int) (*model.Article, error) {
 	for _, article := range d.db {
 		if article.ID == id {
 			return &article, nil
@@ -110,7 +110,7 @@ func (d DummyArticleRepository) FindByID(ctx context.Context, id int) (*model.Ar
 	return nil, fmt.Errorf("article with id = %d not found", id)
 }
 
-func (d DummyArticleRepository) FindByTitle(ctx context.Context, title string) (*model.Article, error) {
+func (d *DummyArticleRepository) FindByTitle(ctx context.Context, title string) (*model.Article, error) {
 	for _, article := range d.db {
 		if article.Title == title {
 			return &article, nil
@@ -120,16 +120,16 @@ func (d DummyArticleRepository) FindByTitle(ctx context.Context, title string) (
 	return nil, fmt.Errorf("article with title = %s not found", title)
 }
 
-func (d DummyArticleRepository) Create(ctx context.Context, u *model.Article) error {
+func (d *DummyArticleRepository) Create(ctx context.Context, u *model.Article) error {
 	d.db = append(d.db, *u)
 	return nil
 }
 
-func (d DummyArticleRepository) List(ctx context.Context) ([]model.Article, error) {
+func (d *DummyArticleRepository) List(ctx context.Context) ([]model.Article, error) {
 	return d.db, nil
 }
 
-func (d DummyArticleRepository) Delete(ctx context.Context, id int) error {
+func (d *DummyArticleRepository) Delete(ctx context.Context, id int) error {
 	index := -1
 
 	for i, article := range d.db {
