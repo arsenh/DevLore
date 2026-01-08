@@ -103,8 +103,7 @@ func (s *ArticleService) SaveArticle(ctx context.Context, title string, content 
 
 func (s *ArticleService) DeleteArticleById(ctx context.Context, id int) error {
 	//TODO: Need to check userId, only article owner can delete!
-	err := s.articleRepository.Delete(ctx, id)
-	if err != nil {
+	if err := s.articleRepository.Delete(ctx, id); err != nil {
 		return logger.LogAndErr("failed to delete article from database")
 	}
 	return nil
@@ -114,7 +113,7 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 	//TODO: Need to check userId, only article owner can edit!
 	article, err := s.articleRepository.FindByID(ctx, id)
 	if err != nil {
-		return nil, logger.LogAndErr("failed to get article by id = ", id)
+		return nil, logger.LogAndErr("failed to get article by id = %d", id)
 	}
 
 	newArticle := model.Article{
@@ -128,11 +127,11 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 
 	//TODO: optimize to have direct update function in repository.
 	if err := s.DeleteArticleById(ctx, id); err != nil {
-		return nil, logger.LogAndErr("failed to delete article by id = ", id)
+		return nil, logger.LogAndErr("failed to delete article by id = %d", id)
 	}
 
 	if err := s.articleRepository.Create(ctx, &newArticle); err != nil {
-		return nil, logger.LogAndErr("failed to add updated article by id = ", id)
+		return nil, logger.LogAndErr("failed to add updated article by id = %d", id)
 	}
 
 	//TODO: update this to get current login user FullName
@@ -149,6 +148,42 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 			CreatedAt: newArticle.CreatedAt,
 			UpdatedAt: newArticle.UpdatedAt,
 		},
+	}
+
+	return view, nil
+}
+
+func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string) (*views.SearchView, error) {
+
+	//TODO: update this to get current login user FullName
+	user, _ := s.userRepository.FindByID(ctx, 11)
+
+	view := &views.SearchView{
+		DashboardView: views.DashboardView{
+			BaseView: views.BaseView{
+				UserName: user.FullName,
+			},
+		},
+		Query: query,
+	}
+
+	if query == "" {
+		return view, nil
+	}
+
+	articles, err := s.articleRepository.Search(ctx, query)
+	if err != nil {
+		return nil, logger.LogAndErr("failed to search articles with query = %s", query)
+	}
+
+	for _, article := range articles {
+		articleShortView := views.ArticleShortItem{
+			ID:        article.ID,
+			Title:     article.Title,
+			UpdatedAt: article.UpdatedAt,
+		}
+
+		view.Articles = append(view.Articles, articleShortView)
 	}
 
 	return view, nil

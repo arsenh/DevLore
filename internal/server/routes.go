@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/logger"
@@ -48,6 +49,7 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Post("/articles/{id}/delete", r.deleteArticleHandler)
 	router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 	router.Post("/articles/{id}/edit", r.editArticleHandler)
+	router.Get("/search", r.showSearchHandler)
 
 	return router
 }
@@ -186,4 +188,16 @@ func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Re
 	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, view); err != nil {
 		templates.InternalServerError(writer, err)
 	}
+}
+
+func (r *Routes) showSearchHandler(writer http.ResponseWriter, request *http.Request) {
+	ctx := request.Context()
+	query := strings.TrimSpace(request.URL.Query().Get("q"))
+
+	view, err := r.articleService.SearchArticlesByQuery(ctx, query)
+	if err != nil {
+		templates.InternalServerError(writer, err)
+		return
+	}
+	templates.Render(writer, http.StatusOK, templates.SearchTemplate, view)
 }

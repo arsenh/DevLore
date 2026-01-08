@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/arsenh/DevLore/internal/model"
@@ -145,4 +146,17 @@ func (d *DummyArticleRepository) Delete(ctx context.Context, id int) error {
 
 	d.db = append(d.db[:index], d.db[index+1:]...)
 	return nil
+}
+
+func (d *DummyArticleRepository) Search(ctx context.Context, query string) ([]model.Article, error) {
+
+	var finds []model.Article
+
+	for _, article := range d.db {
+		if strings.Contains(strings.ToLower(article.Title), strings.ToLower(query)) {
+			finds = append(finds, article)
+		}
+	}
+
+	return finds, nil
 }

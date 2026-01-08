@@ -1,4 +1,5 @@
 {{/* templates/search.html */}}
+
 {{define "title"}}Search{{end}}
 
 {{define "content"}}
@@ -6,8 +7,31 @@
   <h2>Search Articles</h2>
 
   <form method="get" action="/search" class="search-form">
-    <input type="text" name="q" placeholder="Search articles..." class="search-input">
+    <input
+      type="text"
+      name="q"
+       value="{{.Query}}"
+      placeholder="Search articles..."
+      class="search-input"
+    >
     <button type="submit" class="btn btn-primary">Search</button>
   </form>
+
+  {{if .Articles}}
+    <ul class="article-list">
+      {{range .Articles}}
+        <li class="article-item">
+          <a href="/articles/{{.ID}}" class="article-title">
+            {{.Title}}
+          </a>
+          <p class="article-meta">
+            Updated: {{.UpdatedAt}}
+          </p>
+        </li>
+      {{end}}
+    </ul>
+  {{else if .Query}}
+    <p class="empty-state">No articles found.</p>
+  {{end}}
 </div>
 {{end}}

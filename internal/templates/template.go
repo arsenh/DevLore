@@ -16,7 +16,7 @@ const (
 	NewArticleTemplate          = "new-article.html"
 	EditArticleTemplate         = "edit-article.html"
 	ViewArticleTemplate         = "view-article.html"
-	Search                      = "search.html"
+	SearchTemplate              = "search.html"
 	NotFoundTemplate            = "404.html"
 	BadRequestTemplate          = "400.html"
 	InternalServerErrorTemplate = "500.html"

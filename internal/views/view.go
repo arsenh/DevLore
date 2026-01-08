@@ -31,3 +31,8 @@ type ArticleView struct {
 	BaseView
 	Article ArticleFullViewItem
 }
+
+type SearchView struct {
+	DashboardView
+	Query string
+}
