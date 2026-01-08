@@ -78,7 +78,7 @@ main {
 
 /* Container */
 .container {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 24px auto;
     padding: 0 16px;
 }
@@ -278,6 +278,7 @@ main {
     font-size: 36px;
     margin-bottom: 16px;
     color: #111827;
+    word-break: break-word;
 }
 
 .article-content {
