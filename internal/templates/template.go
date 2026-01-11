@@ -20,6 +20,8 @@ const (
 	NotFoundTemplate            = "404.html"
 	BadRequestTemplate          = "400.html"
 	InternalServerErrorTemplate = "500.html"
+	RegisterTemplate            = "register.html"
+	LoginTemplate               = "login.html"
 )
 
 var base *template.Template

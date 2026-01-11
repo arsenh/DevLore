@@ -5,11 +5,17 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/arsenh/DevLore/internal/auth"
 	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/logger"
+	customMiddlewares "github.com/arsenh/DevLore/internal/middleware"
 	"github.com/arsenh/DevLore/internal/service"
 	"github.com/arsenh/DevLore/internal/templates"
+	"github.com/arsenh/DevLore/internal/views"
+
+	"github.com/asaskevich/govalidator"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -17,11 +23,13 @@ import (
 
 type Routes struct {
 	articleService *service.ArticleService
+	userService    *service.UserService
 }
 
-func NewRoutes(service *service.ArticleService) *Routes {
+func NewRoutes(articleSvc *service.ArticleService, userSvc *service.UserService) *Routes {
 	return &Routes{
-		articleService: service,
+		articleService: articleSvc,
+		userService:    userSvc,
 	}
 }
 
@@ -42,7 +50,7 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.NotFound(r.notFoundPage)
 
 	router.Get("/", r.rootHandler)
-	router.Get("/dashboard", r.dashboardHandler)
+	//router.Get("/dashboard", r.dashboardHandler)
 	router.Get("/articles/{id}", r.viewArticleHandler)
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
@@ -50,6 +58,15 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 	router.Post("/articles/{id}/edit", r.editArticleHandler)
 	router.Get("/search", r.showSearchHandler)
+
+	router.Get("/auth/register", r.showRegisterHandler)
+	router.Post("/auth/register", r.registerUserHandler)
+	router.Get("/auth/login", r.showLoginHandler)
+
+	router.Group(func(router chi.Router) {
+		router.Use(customMiddlewares.JWTAuthMiddleware(string(config.JWTSecretKey)))
+		router.Get("/dashboard", r.dashboardHandler)
+	})
 
 	return router
 }
@@ -64,17 +81,70 @@ func (r *Routes) retrieveId(request *http.Request) (int, error) {
 	return id, nil
 }
 
+func setJWTTokenAsCookie(writer http.ResponseWriter, token string) {
+	http.SetCookie(writer, &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(24 * time.Hour),
+		Secure:   false, // MUST be false on HTTP
+	})
+}
+
+func deleteJWTTokenFromCookie(writer http.ResponseWriter) {
+	http.SetCookie(writer, &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0), // Jan 1, 1970
+		MaxAge:   -1,              // also forces deletion
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   false, // true if HTTPS
+	})
+}
+
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
 	templates.NotFound(writer)
 }
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
-	dashboardData, err := r.articleService.GetDashboardData(request.Context())
+
+	ctx := request.Context()
+
+	authErr := ctx.Value(customMiddlewares.CtxAuthError)
+
+	view := &views.DashboardView{}
+
+	if authErr != nil {
+		// something wrong with JWT token
+		// remove from cookie
+		deleteJWTTokenFromCookie(writer)
+		view.UserName = ""
+	} else {
+		userID := ctx.Value(customMiddlewares.CtxUserID).(int)
+
+		//TODO: handle err from service
+		user, _ := r.userService.GetUserByID(ctx, userID)
+		if user == nil {
+			deleteJWTTokenFromCookie(writer)
+			view.UserName = ""
+		} else {
+			view.UserName = user.FullName
+		}
+	}
+
+	//TODO: add limit on articles count
+	articleItems, err := r.articleService.GetDashboardData(request.Context())
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
 	}
-	if err := templates.Render(writer, http.StatusOK, templates.DashboardTemplate, dashboardData); err != nil {
+
+	view.Articles = articleItems
+	if err := templates.Render(writer, http.StatusOK, templates.DashboardTemplate, view); err != nil {
 		templates.InternalServerError(writer, err)
 		return
 	}
@@ -199,5 +269,72 @@ func (r *Routes) showSearchHandler(writer http.ResponseWriter, request *http.Req
 		templates.InternalServerError(writer, err)
 		return
 	}
-	templates.Render(writer, http.StatusOK, templates.SearchTemplate, view)
+	if err := templates.Render(writer, http.StatusOK, templates.SearchTemplate, view); err != nil {
+		templates.InternalServerError(writer, err)
+	}
+}
+
+func (r *Routes) showRegisterHandler(writer http.ResponseWriter, request *http.Request) {
+	if err := templates.Render(writer, http.StatusOK, templates.RegisterTemplate, nil); err != nil {
+		templates.InternalServerError(writer, err)
+	}
+}
+
+func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.Request) {
+	// need to get user email, password, confirm password, full name
+	if err := request.ParseForm(); err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	email := request.Form.Get("email")
+	fullName := request.Form.Get("full_name")
+	password := request.Form.Get("password")
+	passwordConfirm := request.Form.Get("password_confirm")
+
+	//TODO: Validations
+	// 1. minimal password requirments maybe on JS side
+	// 2. Check if this email already exists
+
+	if !govalidator.IsEmail(email) ||
+		(fullName == "") ||
+		(password == "") ||
+		(passwordConfirm == "") ||
+		(password != passwordConfirm) {
+		templates.BadRequest(writer)
+		return
+	}
+
+	ctx := request.Context()
+
+	user := r.userService.GetUserByEmail(ctx, email)
+	if user != nil {
+		// user already exist
+		//TODO: consider to render same register page but with message that user with email is already exist
+		//DELETE: temporary solution is to render BadRequest
+		templates.BadRequest(writer)
+		return
+	}
+
+	registeredUser, err := r.userService.RegisterUser(ctx, email, password, fullName)
+	if err != nil {
+		templates.InternalServerError(writer, err)
+		return
+	}
+
+	token, err := auth.GenerateJWTToken(registeredUser.ID, registeredUser.Email, registeredUser.FullName)
+	if err != nil {
+		//TODO: Am I need to remove user from database ????
+		templates.InternalServerError(writer, err)
+		return
+	}
+
+	setJWTTokenAsCookie(writer, token)
+	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+}
+
+func (r *Routes) showLoginHandler(writer http.ResponseWriter, request *http.Request) {
+	if err := templates.Render(writer, http.StatusOK, templates.LoginTemplate, nil); err != nil {
+		templates.InternalServerError(writer, err)
+	}
 }

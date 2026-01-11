@@ -8,4 +8,5 @@ var (
 	StaticDir        = "static"
 	PublicDir        = "public"
 	MainHTMLTemplate = filepath.Join(TemplatesDir, "layout.html")
+	JWTSecretKey     = []byte("super-secret")
 )

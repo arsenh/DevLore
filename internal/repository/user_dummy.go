@@ -37,13 +37,13 @@ func (d *DummyUserRepository) FindByID(ctx context.Context, id int) (*model.User
 	return nil, fmt.Errorf("user with id = %d not found", id)
 }
 
-func (d *DummyUserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
+func (d *DummyUserRepository) FindByEmail(ctx context.Context, email string) *model.User {
 	for _, user := range d.db {
 		if user.Email == email {
-			return &user, nil
+			return &user
 		}
 	}
-	return nil, fmt.Errorf("user with email = %s not found", email)
+	return nil
 }
 
 func (d *DummyUserRepository) Create(ctx context.Context, u *model.User) error {

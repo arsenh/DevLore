@@ -1,1 +1,52 @@
 package service
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/arsenh/DevLore/internal/model"
+	"github.com/arsenh/DevLore/internal/repository"
+)
+
+type UserService struct {
+	userRepository model.UserRepository
+}
+
+func (u *UserService) GetUserByID(ctx context.Context, id int) (*model.User, error) {
+	//TODO: handle FindByID error on real database to recognize DB error
+	user, _ := u.userRepository.FindByID(ctx, id)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to find user by id: %d", id)
+	//}
+	return user, nil
+}
+
+func (u *UserService) RegisterUser(ctx context.Context, email string, password string, fullName string) (*model.User, error) {
+
+	user := &model.User{
+		ID:        777,
+		FullName:  fullName,
+		Email:     email,
+		Password:  password, // TODO: need to create HASH on password
+		CreatedAt: time.Now(),
+	}
+
+	err := u.userRepository.Create(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register user by email: %s", email)
+	}
+
+	return user, nil
+}
+
+func (u *UserService) GetUserByEmail(ctx context.Context, email string) *model.User {
+	user := u.userRepository.FindByEmail(ctx, email)
+	return user
+}
+
+func NewUserService() *UserService {
+	return &UserService{
+		userRepository: repository.NewDummyUserRepository(),
+	}
+}

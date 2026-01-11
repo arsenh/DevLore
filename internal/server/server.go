@@ -14,16 +14,16 @@ type HTTPServer struct {
 
 func NewHTTPServer(addr string) *HTTPServer {
 	articleService := service.NewArticleService()
+	userService := service.NewUserService()
 	return &HTTPServer{
 		addr:   addr,
-		routes: NewRoutes(articleService).GetRoutes(),
+		routes: NewRoutes(articleService, userService).GetRoutes(),
 	}
 }
 
 func (s *HTTPServer) Start() {
 	server := http.Server{
-		Addr: s.addr,
-		//Handler: middleware.Logging(s.routes),
+		Addr:    s.addr,
 		Handler: s.routes,
 	}
 

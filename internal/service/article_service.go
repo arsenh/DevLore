@@ -23,21 +23,13 @@ func NewArticleService() *ArticleService {
 	}
 }
 
-func (s *ArticleService) GetDashboardData(ctx context.Context) (*views.DashboardView, error) {
+func (s *ArticleService) GetDashboardData(ctx context.Context) ([]views.ArticleShortItem, error) {
 	articles, err := s.articleRepository.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	//TODO: update this to get current login user FullName
-	user, _ := s.userRepository.FindByID(ctx, 11)
-
-	dashboardView := views.DashboardView{
-		BaseView: views.BaseView{
-			UserName: user.FullName,
-		},
-		Articles: make([]views.ArticleShortItem, 0),
-	}
+	articleItems := make([]views.ArticleShortItem, 0)
 
 	for _, article := range articles {
 		articleItem := views.ArticleShortItem{
@@ -46,10 +38,10 @@ func (s *ArticleService) GetDashboardData(ctx context.Context) (*views.Dashboard
 			UpdatedAt: article.UpdatedAt,
 		}
 
-		dashboardView.Articles = append(dashboardView.Articles, articleItem)
+		articleItems = append(articleItems, articleItem)
 	}
 
-	return &dashboardView, nil
+	return articleItems, nil
 }
 
 func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.ArticleView, error) {

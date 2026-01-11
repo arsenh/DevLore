@@ -1,0 +1,59 @@
+{{/* templates/register.html */}} {{define "title"}}Register{{end}} {{define
+"content"}}
+<div class="container">
+    <h2>Create Account</h2>
+
+    <form method="post" action="/auth/register" class="article-form">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input
+                type="text"
+                id="email"
+                name="email"
+                placeholder="Enter your email"
+                required
+            />
+        </div>
+
+        <div class="form-group">
+            <label for="fullName">Full Name</label>
+            <input
+                type="text"
+                id="full_name"
+                name="full_name"
+                placeholder="Enter your full name"
+                required
+            />
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+                required
+            />
+        </div>
+
+        <div class="form-group">
+            <label for="password_confirm">Confirm Password</label>
+            <input
+                type="password"
+                id="password_confirm"
+                name="password_confirm"
+                placeholder="Confirm your password"
+                required
+            />
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Register</button>
+            <a href="/auth/login" class="btn btn-secondary"
+                >Already have an account?</a
+            >
+        </div>
+    </form>
+</div>
+{{end}}
