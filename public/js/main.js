@@ -1,216 +1,235 @@
+function debounce(fn, delay) {
+  let timeoutId;
+  return function (...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
+function emailExistsFetch(email) {
+  if (typeof email != "string" || email.length < 1) return;
+
+  const url = `/email-exists?email=${email}`;
+
+  return fetch(url)
+    .then((data) => data.json())
+    .then((status) => status);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
-    // Delete modal logic (existing code)
-    const modal = document.getElementById("delete-modal");
-    const openBtn = document.getElementById("open-delete-modal");
-    const cancelBtn = document.getElementById("cancel-delete");
-    const confirmBtn = document.getElementById("confirm-delete");
-    const form = document.getElementById("delete-form");
+  // Delete modal logic (existing code)
+  const modal = document.getElementById("delete-modal");
+  const openBtn = document.getElementById("open-delete-modal");
+  const cancelBtn = document.getElementById("cancel-delete");
+  const confirmBtn = document.getElementById("confirm-delete");
+  const form = document.getElementById("delete-form");
 
-    if (modal && openBtn && cancelBtn && confirmBtn && form) {
-        openBtn.addEventListener("click", () => (modal.style.display = "flex"));
-        cancelBtn.addEventListener(
-            "click",
-            () => (modal.style.display = "none"),
-        );
-        confirmBtn.addEventListener("click", () => form.submit());
-        modal.addEventListener("click", (e) => {
-            if (e.target === modal) modal.style.display = "none";
-        });
-    }
+  if (modal && openBtn && cancelBtn && confirmBtn && form) {
+    openBtn.addEventListener("click", () => (modal.style.display = "flex"));
+    cancelBtn.addEventListener("click", () => (modal.style.display = "none"));
+    confirmBtn.addEventListener("click", () => form.submit());
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.style.display = "none";
+    });
+  }
 
-    // Helper functions (shared by both forms)
-    function showError(input, message) {
-        clearError(input);
-        const error = document.createElement("span");
-        error.className = "error-message";
-        error.style.color = "#d32f2f";
-        error.style.fontSize = "0.875rem";
-        error.style.marginTop = "0.25rem";
-        error.style.display = "block";
-        error.textContent = message;
-        input.parentElement.appendChild(error);
-        input.style.borderColor = "#d32f2f";
-    }
+  // Helper functions (shared by both forms)
+  function showError(input, message) {
+    clearError(input);
+    const error = document.createElement("span");
+    error.className = "error-message";
+    error.style.color = "#d32f2f";
+    error.style.fontSize = "0.875rem";
+    error.style.marginTop = "0.25rem";
+    error.style.display = "block";
+    error.textContent = message;
+    input.parentElement.appendChild(error);
+    input.style.borderColor = "#d32f2f";
+  }
 
-    function clearError(input) {
-        const error = input.parentElement.querySelector(".error-message");
-        if (error) error.remove();
-        input.style.borderColor = "";
-    }
+  function clearError(input) {
+    const error = input.parentElement.querySelector(".error-message");
+    if (error) error.remove();
+    input.style.borderColor = "";
+  }
 
-    // Registration form validation
-    const registerForm = document.querySelector(
-        'form[action="/auth/register"]',
-    );
-    if (registerForm) {
-        const emailInput = document.getElementById("email");
-        const fullNameInput = document.getElementById("full_name");
-        const passwordInput = document.getElementById("password");
-        const passwordConfirmInput =
-            document.getElementById("password_confirm");
+  // Registration form validation
+  const registerForm = document.querySelector('form[action="/auth/register"]');
+  if (registerForm) {
+    const emailInput = document.getElementById("email");
+    const fullNameInput = document.getElementById("full_name");
+    const passwordInput = document.getElementById("password");
+    const passwordConfirmInput = document.getElementById("password_confirm");
 
-        // Email validation
-        emailInput.addEventListener("blur", function () {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!this.value.trim()) {
-                showError(this, "Email is required");
-            } else if (!emailRegex.test(this.value)) {
-                showError(this, "Please enter a valid email address");
-            } else {
-                clearError(this);
-            }
-        });
+    // Email validation
+    emailInput.addEventListener("blur", function () {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!this.value.trim()) {
+        showError(this, "Email is required");
+      } else if (!emailRegex.test(this.value)) {
+        showError(this, "Please enter a valid email address");
+      } else {
+        clearError(this);
+      }
+    });
 
-        emailInput.addEventListener("input", function () {
-            if (this.value.trim()) clearError(this);
-        });
+    // Email exist
+    emailInput.addEventListener("input", function () {
+      if (this.value.trim()) clearError(this);
+    });
 
-        // Full name validation
-        fullNameInput.addEventListener("blur", function () {
-            if (!this.value.trim()) {
-                showError(this, "Full name is required");
-            } else if (this.value.trim().length < 2) {
-                showError(this, "Full name must be at least 2 characters");
-            } else {
-                clearError(this);
-            }
-        });
+    const debouncedFetch = debounce((event) => {
+      emailExistsFetch(event.target.value).then((status) => {
+        if (status.exists) {
+          console.log(status);
+          showError(emailInput, "this email used");
+        } else {
+          clearError(emailInput);
+        }
+      });
+    }, 500);
 
-        fullNameInput.addEventListener("input", function () {
-            if (this.value.trim()) clearError(this);
-        });
+    emailInput.addEventListener("keydown", debouncedFetch);
 
-        // Password validation
-        passwordInput.addEventListener("blur", function () {
-            if (!this.value) {
-                showError(this, "Password is required");
-            } else if (this.value.length < 8) {
-                showError(this, "Password must be at least 8 characters");
-            } else {
-                clearError(this);
-                // Re-validate password confirmation if it has a value
-                if (passwordConfirmInput.value) {
-                    passwordConfirmInput.dispatchEvent(new Event("blur"));
-                }
-            }
-        });
+    // Full name validation
+    fullNameInput.addEventListener("blur", function () {
+      if (!this.value.trim()) {
+        showError(this, "Full name is required");
+      } else if (this.value.trim().length < 2) {
+        showError(this, "Full name must be at least 2 characters");
+      } else {
+        clearError(this);
+      }
+    });
 
-        passwordInput.addEventListener("input", function () {
-            if (this.value) clearError(this);
-            // Re-validate confirmation on password change
-            if (passwordConfirmInput.value) {
-                clearError(passwordConfirmInput);
-            }
-        });
+    fullNameInput.addEventListener("input", function () {
+      if (this.value.trim()) clearError(this);
+    });
 
-        // Password confirmation validation
-        passwordConfirmInput.addEventListener("blur", function () {
-            if (!this.value) {
-                showError(this, "Please confirm your password");
-            } else if (this.value !== passwordInput.value) {
-                showError(this, "Passwords do not match");
-            } else {
-                clearError(this);
-            }
-        });
+    // Password validation
+    passwordInput.addEventListener("blur", function () {
+      if (!this.value) {
+        showError(this, "Password is required");
+      } else if (this.value.length < 8) {
+        showError(this, "Password must be at least 8 characters");
+      } else {
+        clearError(this);
+        // Re-validate password confirmation if it has a value
+        if (passwordConfirmInput.value) {
+          passwordConfirmInput.dispatchEvent(new Event("blur"));
+        }
+      }
+    });
 
-        passwordConfirmInput.addEventListener("input", function () {
-            if (this.value) clearError(this);
-        });
+    passwordInput.addEventListener("input", function () {
+      if (this.value) clearError(this);
+      // Re-validate confirmation on password change
+      if (passwordConfirmInput.value) {
+        clearError(passwordConfirmInput);
+      }
+    });
 
-        // Form submission validation
-        registerForm.addEventListener("submit", function (e) {
-            let isValid = true;
+    // Password confirmation validation
+    passwordConfirmInput.addEventListener("blur", function () {
+      if (!this.value) {
+        showError(this, "Please confirm your password");
+      } else if (this.value !== passwordInput.value) {
+        showError(this, "Passwords do not match");
+      } else {
+        clearError(this);
+      }
+    });
 
-            // Validate email
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailInput.value.trim()) {
-                showError(emailInput, "Email is required");
-                isValid = false;
-            } else if (!emailRegex.test(emailInput.value)) {
-                showError(emailInput, "Please enter a valid email address");
-                isValid = false;
-            }
+    passwordConfirmInput.addEventListener("input", function () {
+      if (this.value) clearError(this);
+    });
 
-            // Validate full name
-            if (!fullNameInput.value.trim()) {
-                showError(fullNameInput, "Full name is required");
-                isValid = false;
-            } else if (fullNameInput.value.trim().length < 2) {
-                showError(
-                    fullNameInput,
-                    "Full name must be at least 2 characters",
-                );
-                isValid = false;
-            }
+    // Form submission validation
+    registerForm.addEventListener("submit", function (e) {
+      let isValid = true;
 
-            // Validate password
-            if (!passwordInput.value) {
-                showError(passwordInput, "Password is required");
-                isValid = false;
-            } else if (passwordInput.value.length < 8) {
-                showError(
-                    passwordInput,
-                    "Password must be at least 8 characters",
-                );
-                isValid = false;
-            }
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailInput.value.trim()) {
+        showError(emailInput, "Email is required");
+        isValid = false;
+      } else if (!emailRegex.test(emailInput.value)) {
+        showError(emailInput, "Please enter a valid email address");
+        isValid = false;
+      }
 
-            // Validate password confirmation
-            if (!passwordConfirmInput.value) {
-                showError(passwordConfirmInput, "Please confirm your password");
-                isValid = false;
-            } else if (passwordConfirmInput.value !== passwordInput.value) {
-                showError(passwordConfirmInput, "Passwords do not match");
-                isValid = false;
-            }
+      // Validate full name
+      if (!fullNameInput.value.trim()) {
+        showError(fullNameInput, "Full name is required");
+        isValid = false;
+      } else if (fullNameInput.value.trim().length < 2) {
+        showError(fullNameInput, "Full name must be at least 2 characters");
+        isValid = false;
+      }
 
-            if (!isValid) {
-                e.preventDefault();
-                // Focus on first invalid field
-                const firstError = registerForm.querySelector(".error-message");
-                if (firstError) {
-                    firstError.previousElementSibling.focus();
-                }
-            }
-        });
-    }
+      // Validate password
+      if (!passwordInput.value) {
+        showError(passwordInput, "Password is required");
+        isValid = false;
+      } else if (passwordInput.value.length < 8) {
+        showError(passwordInput, "Password must be at least 8 characters");
+        isValid = false;
+      }
 
-    // Login form validation
-    const loginForm = document.querySelector('form[action="/auth/login"]');
-    if (loginForm) {
-        loginForm.addEventListener("submit", function (e) {
-            let isValid = true;
-            const loginEmailInput = document.getElementById("email");
-            const loginPasswordInput = document.getElementById("password");
+      // Validate password confirmation
+      if (!passwordConfirmInput.value) {
+        showError(passwordConfirmInput, "Please confirm your password");
+        isValid = false;
+      } else if (passwordConfirmInput.value !== passwordInput.value) {
+        showError(passwordConfirmInput, "Passwords do not match");
+        isValid = false;
+      }
 
-            // Validate email
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!loginEmailInput.value.trim()) {
-                showError(loginEmailInput, "Email is required");
-                isValid = false;
-            } else if (!emailRegex.test(loginEmailInput.value)) {
-                showError(
-                    loginEmailInput,
-                    "Please enter a valid email address",
-                );
-                isValid = false;
-            }
+      if (!isValid) {
+        e.preventDefault();
+        // Focus on first invalid field
+        const firstError = registerForm.querySelector(".error-message");
+        if (firstError) {
+          firstError.previousElementSibling.focus();
+        }
+      }
+    });
+  }
 
-            // Validate password
-            if (!loginPasswordInput.value) {
-                showError(loginPasswordInput, "Password is required");
-                isValid = false;
-            }
+  // Login form validation
+  const loginForm = document.querySelector('form[action="/auth/login"]');
+  if (loginForm) {
+    loginForm.addEventListener("submit", function (e) {
+      let isValid = true;
+      const loginEmailInput = document.getElementById("email");
+      const loginPasswordInput = document.getElementById("password");
 
-            if (!isValid) {
-                e.preventDefault();
-                // Focus on first invalid field
-                const firstError = loginForm.querySelector(".error-message");
-                if (firstError) {
-                    firstError.previousElementSibling.focus();
-                }
-            }
-        });
-    }
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!loginEmailInput.value.trim()) {
+        showError(loginEmailInput, "Email is required");
+        isValid = false;
+      } else if (!emailRegex.test(loginEmailInput.value)) {
+        showError(loginEmailInput, "Please enter a valid email address");
+        isValid = false;
+      }
+
+      // Validate password
+      if (!loginPasswordInput.value) {
+        showError(loginPasswordInput, "Password is required");
+        isValid = false;
+      }
+
+      if (!isValid) {
+        e.preventDefault();
+        // Focus on first invalid field
+        const firstError = loginForm.querySelector(".error-message");
+        if (firstError) {
+          firstError.previousElementSibling.focus();
+        }
+      }
+    });
+  }
 });
