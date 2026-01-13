@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -58,6 +59,7 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 	router.Post("/articles/{id}/edit", r.editArticleHandler)
 	router.Get("/search", r.showSearchHandler)
+	router.Get("/email-exists", r.emailExistHandler)
 
 	router.Post("/auth/register", r.registerUserHandler)
 
@@ -305,9 +307,8 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 	password := request.Form.Get("password")
 	passwordConfirm := request.Form.Get("password_confirm")
 
-	//TODO: Validations
-	// 1. minimal password requirments maybe on JS side
-	// 2. Check if this email already exists
+	// TODO: Validations
+	// Check if this email already exists
 
 	if !govalidator.IsEmail(email) ||
 		(fullName == "") ||
@@ -355,4 +356,29 @@ func (r *Routes) showLoginHandler(writer http.ResponseWriter, request *http.Requ
 	if err := templates.Render(writer, http.StatusOK, templates.LoginTemplate, nil); err != nil {
 		templates.InternalServerError(writer, err)
 	}
+}
+
+func (r *Routes) emailExistHandler(writer http.ResponseWriter, request *http.Request) {
+	// TODO: add rate limiter to give 5 requests per minute
+	raw := request.URL.Query().Get("email")
+
+	email := strings.TrimSpace(strings.ToLower(raw))
+
+	if len(email) > 255 {
+		email = ""
+	}
+
+	logger.L().Infoln("email: ", email)
+	logger.L().Infoln("email len: ", len(email))
+
+	exists := false
+	if user := r.userService.GetUserByEmail(request.Context(), email); user != nil {
+		exists = true
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	json.NewEncoder(writer).Encode(map[string]bool{
+		"exists": exists,
+	})
 }

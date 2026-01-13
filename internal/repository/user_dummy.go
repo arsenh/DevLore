@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/arsenh/DevLore/internal/model"
 )
@@ -12,18 +13,80 @@ type DummyUserRepository struct {
 }
 
 func NewDummyUserRepository() *DummyUserRepository {
+	now := time.Now()
+
 	return &DummyUserRepository{
 		db: []model.User{
-			{ID: 11, FullName: "Alice Johnson"},
-			{ID: 22, FullName: "Bob Smith"},
-			{ID: 33, FullName: "Carol Adams"},
-			{ID: 44, FullName: "Dave Brown"},
-			{ID: 55, FullName: "Eve Thompson"},
-			{ID: 66, FullName: "Frank Williams"},
-			{ID: 77, FullName: "Grace Miller"},
-			{ID: 88, FullName: "Heidi Clark"},
-			{ID: 99, FullName: "Ivan Garcia"},
-			{ID: 111, FullName: "Judy Martinez"},
+			{
+				ID:        11,
+				FullName:  "Alice Johnson",
+				Email:     "alice@example.com",
+				Password:  "$2a$10$alicehashedpassword",
+				CreatedAt: now.Add(-72 * time.Hour),
+			},
+			{
+				ID:        22,
+				FullName:  "Bob Smith",
+				Email:     "bob@example.com",
+				Password:  "$2a$10$bobhashedpassword",
+				CreatedAt: now.Add(-48 * time.Hour),
+			},
+			{
+				ID:        33,
+				FullName:  "Carol Adams",
+				Email:     "carol@example.com",
+				Password:  "$2a$10$carolhashedpassword",
+				CreatedAt: now.Add(-36 * time.Hour),
+			},
+			{
+				ID:        44,
+				FullName:  "Dave Brown",
+				Email:     "dave@example.com",
+				Password:  "$2a$10$davehashedpassword",
+				CreatedAt: now.Add(-24 * time.Hour),
+			},
+			{
+				ID:        55,
+				FullName:  "Eve Thompson",
+				Email:     "eve@example.com",
+				Password:  "$2a$10$evehashedpassword",
+				CreatedAt: now.Add(-12 * time.Hour),
+			},
+			{
+				ID:        66,
+				FullName:  "Frank Williams",
+				Email:     "frank@example.com",
+				Password:  "$2a$10$frankhashedpassword",
+				CreatedAt: now.Add(-6 * time.Hour),
+			},
+			{
+				ID:        77,
+				FullName:  "Grace Miller",
+				Email:     "grace@example.com",
+				Password:  "$2a$10$gracehashedpassword",
+				CreatedAt: now.Add(-3 * time.Hour),
+			},
+			{
+				ID:        88,
+				FullName:  "Heidi Clark",
+				Email:     "heidi@example.com",
+				Password:  "$2a$10$heidihashedpassword",
+				CreatedAt: now.Add(-2 * time.Hour),
+			},
+			{
+				ID:        99,
+				FullName:  "Ivan Garcia",
+				Email:     "ivan@example.com",
+				Password:  "$2a$10$ivanhashpassword",
+				CreatedAt: now.Add(-1 * time.Hour),
+			},
+			{
+				ID:        111,
+				FullName:  "Judy Martinez",
+				Email:     "judy@example.com",
+				Password:  "$2a$10$judyhashpassword",
+				CreatedAt: now,
+			},
 		},
 	}
 }
