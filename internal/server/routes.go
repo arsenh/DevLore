@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -50,7 +51,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.NotFound(r.notFoundPage)
 
 	router.Get("/", r.rootHandler)
-	//router.Get("/dashboard", r.dashboardHandler)
 	router.Get("/articles/{id}", r.viewArticleHandler)
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
@@ -59,12 +59,12 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Post("/articles/{id}/edit", r.editArticleHandler)
 	router.Get("/search", r.showSearchHandler)
 
-	router.Get("/auth/register", r.showRegisterHandler)
 	router.Post("/auth/register", r.registerUserHandler)
-	router.Get("/auth/login", r.showLoginHandler)
 
 	router.Group(func(router chi.Router) {
 		router.Use(customMiddlewares.JWTAuthMiddleware(string(config.JWTSecretKey)))
+		router.Get("/auth/register", r.showRegisterHandler)
+		router.Get("/auth/login", r.showLoginHandler)
 		router.Get("/dashboard", r.dashboardHandler)
 	})
 
@@ -106,6 +106,11 @@ func deleteJWTTokenFromCookie(writer http.ResponseWriter) {
 	})
 }
 
+func isUserAuthenticated(ctx context.Context) bool {
+	authErr := ctx.Value(customMiddlewares.CtxAuthError)
+	return authErr == nil
+}
+
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
 	templates.NotFound(writer)
 }
@@ -114,25 +119,21 @@ func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Requ
 
 	ctx := request.Context()
 
-	authErr := ctx.Value(customMiddlewares.CtxAuthError)
-
-	view := &views.DashboardView{}
-
-	if authErr != nil {
+	userName := ""
+	if !isUserAuthenticated(ctx) {
 		// something wrong with JWT token
 		// remove from cookie
 		deleteJWTTokenFromCookie(writer)
-		view.UserName = ""
+		userName = ""
 	} else {
 		userID := ctx.Value(customMiddlewares.CtxUserID).(int)
-
 		//TODO: handle err from service
 		user, _ := r.userService.GetUserByID(ctx, userID)
 		if user == nil {
 			deleteJWTTokenFromCookie(writer)
-			view.UserName = ""
+			userName = ""
 		} else {
-			view.UserName = user.FullName
+			userName = user.FullName
 		}
 	}
 
@@ -143,7 +144,13 @@ func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	view.Articles = articleItems
+	view := &views.DashboardView{
+		BaseView: views.BaseView{
+			UserName: userName,
+		},
+		Articles: articleItems,
+	}
+
 	if err := templates.Render(writer, http.StatusOK, templates.DashboardTemplate, view); err != nil {
 		templates.InternalServerError(writer, err)
 		return
@@ -275,6 +282,12 @@ func (r *Routes) showSearchHandler(writer http.ResponseWriter, request *http.Req
 }
 
 func (r *Routes) showRegisterHandler(writer http.ResponseWriter, request *http.Request) {
+
+	// redirect to dashboard if user already authenticated
+	if isUserAuthenticated(request.Context()) {
+		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+	}
+
 	if err := templates.Render(writer, http.StatusOK, templates.RegisterTemplate, nil); err != nil {
 		templates.InternalServerError(writer, err)
 	}
@@ -334,6 +347,11 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 }
 
 func (r *Routes) showLoginHandler(writer http.ResponseWriter, request *http.Request) {
+	// redirect to dashboard if user already authenticated
+	if isUserAuthenticated(request.Context()) {
+		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+	}
+
 	if err := templates.Render(writer, http.StatusOK, templates.LoginTemplate, nil); err != nil {
 		templates.InternalServerError(writer, err)
 	}
