@@ -26,12 +26,14 @@ import (
 type Routes struct {
 	articleService *service.ArticleService
 	userService    *service.UserService
+	rateLimiter    *RateLimiter
 }
 
-func NewRoutes(articleSvc *service.ArticleService, userSvc *service.UserService) *Routes {
+func NewRoutes(articleSvc *service.ArticleService, userSvc *service.UserService, limiter *RateLimiter) *Routes {
 	return &Routes{
 		articleService: articleSvc,
 		userService:    userSvc,
+		rateLimiter:    limiter,
 	}
 }
 
@@ -43,6 +45,7 @@ func (r *Routes) GetRoutes() http.Handler {
 		Logger: logger.L(),
 	})
 
+	router.Use(middleware.RealIP)
 	router.Use(chiLogger)
 
 	fs := http.FileServer(http.Dir(config.PublicDir))
@@ -113,12 +116,18 @@ func isUserAuthenticated(ctx context.Context) bool {
 	return authErr == nil
 }
 
+func getIP(request *http.Request) string {
+	if request.RemoteAddr != "" {
+		return strings.Split(request.RemoteAddr, ":")[0]
+	}
+	return "unknown" // to not broke rate limiter, if address not found, fallback will be used
+}
+
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
 	templates.NotFound(writer)
 }
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
-
 	ctx := request.Context()
 
 	userName := ""
@@ -359,7 +368,14 @@ func (r *Routes) showLoginHandler(writer http.ResponseWriter, request *http.Requ
 }
 
 func (r *Routes) emailExistHandler(writer http.ResponseWriter, request *http.Request) {
-	// TODO: add rate limiter to give 5 requests per minute
+	//rate limiter to give 5 requests per minute
+	limiter := r.rateLimiter.GetLimiterIp(getIP(request))
+
+	if !limiter.Allow() {
+		http.Error(writer, "Too Many Requests", http.StatusTooManyRequests)
+		return
+	}
+
 	raw := request.URL.Query().Get("email")
 
 	email := strings.TrimSpace(strings.ToLower(raw))

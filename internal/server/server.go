@@ -15,9 +15,12 @@ type HTTPServer struct {
 func NewHTTPServer(addr string) *HTTPServer {
 	articleService := service.NewArticleService()
 	userService := service.NewUserService()
+	rateLimiter := NewRateLimiter()
 	return &HTTPServer{
-		addr:   addr,
-		routes: NewRoutes(articleService, userService).GetRoutes(),
+		addr: addr,
+		routes: NewRoutes(articleService,
+			userService,
+			rateLimiter).GetRoutes(),
 	}
 }
 
