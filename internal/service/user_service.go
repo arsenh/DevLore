@@ -13,6 +13,12 @@ type UserService struct {
 	userRepository model.UserRepository
 }
 
+func NewUserService() *UserService {
+	return &UserService{
+		userRepository: repository.NewDummyUserRepository(),
+	}
+}
+
 func (u *UserService) GetUserByID(ctx context.Context, id int) (*model.User, error) {
 	//TODO: handle FindByID error on real database to recognize DB error
 	user, _ := u.userRepository.FindByID(ctx, id)
@@ -45,8 +51,12 @@ func (u *UserService) GetUserByEmail(ctx context.Context, email string) *model.U
 	return user
 }
 
-func NewUserService() *UserService {
-	return &UserService{
-		userRepository: repository.NewDummyUserRepository(),
+func (u *UserService) CheckUserPassword(ctx context.Context, userID int, inputPassword string) bool {
+	user, err := u.userRepository.FindByID(ctx, userID)
+	if err != nil {
+		return false
 	}
+
+	//TODO: In real database, need to compare hashes, from user input and database hash
+	return user.Password == inputPassword
 }

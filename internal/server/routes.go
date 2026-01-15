@@ -64,12 +64,12 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/search", r.showSearchHandler)
 	router.Get("/email-exists", r.emailExistHandler)
 
-	router.Post("/auth/register", r.registerUserHandler)
-
 	router.Group(func(router chi.Router) {
 		router.Use(customMiddlewares.JWTAuthMiddleware(string(config.JWTSecretKey)))
 		router.Get("/auth/register", r.showRegisterHandler)
+		router.Post("/auth/register", r.registerUserHandler)
 		router.Get("/auth/login", r.showLoginHandler)
+		router.Post("/auth/login", r.loginUserHandler)
 		router.Get("/dashboard", r.dashboardHandler)
 	})
 
@@ -305,6 +305,11 @@ func (r *Routes) showRegisterHandler(writer http.ResponseWriter, request *http.R
 }
 
 func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.Request) {
+	// redirect to dashboard if user already authenticated
+	if isUserAuthenticated(request.Context()) {
+		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+	}
+
 	// need to get user email, password, confirm password, full name
 	if err := request.ParseForm(); err != nil {
 		templates.BadRequest(writer)
@@ -353,6 +358,56 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 	}
 
 	setJWTTokenAsCookie(writer, token)
+	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+}
+
+func (r *Routes) loginUserHandler(writer http.ResponseWriter, request *http.Request) {
+	// redirect to dashboard if user already authenticated
+	if isUserAuthenticated(request.Context()) {
+		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
+	}
+
+	// need to get user email, password
+	if err := request.ParseForm(); err != nil {
+		templates.BadRequest(writer)
+		return
+	}
+
+	email := request.Form.Get("email")
+	password := request.Form.Get("password")
+
+	if !govalidator.IsEmail(email) || (password == "") {
+		templates.BadRequest(writer)
+		return
+	}
+
+	ctx := request.Context()
+
+	user := r.userService.GetUserByEmail(ctx, email)
+
+	if user != nil {
+
+		// check user password
+		ok := r.userService.CheckUserPassword(ctx, user.ID, password)
+		if !ok {
+			templates.BadRequest(writer)
+			return
+		}
+
+		// user exists, password correct, but token is expired or not exist
+		// create new token
+		token, err := auth.GenerateJWTToken(user.ID, user.Email, user.FullName)
+		if err != nil {
+			templates.InternalServerError(writer, err)
+			return
+		}
+		setJWTTokenAsCookie(writer, token)
+	} else {
+		//TODO: show login page with mail and login and error
+		templates.BadRequest(writer)
+		return
+	}
+
 	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }
 
