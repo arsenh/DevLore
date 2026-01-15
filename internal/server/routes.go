@@ -71,6 +71,7 @@ func (r *Routes) GetRoutes() http.Handler {
 		router.Get("/auth/login", r.showLoginHandler)
 		router.Post("/auth/login", r.loginUserHandler)
 		router.Get("/dashboard", r.dashboardHandler)
+		router.Post("/auth/logout", r.logoutHandler)
 	})
 
 	return router
@@ -452,4 +453,11 @@ func (r *Routes) emailExistHandler(writer http.ResponseWriter, request *http.Req
 	json.NewEncoder(writer).Encode(map[string]bool{
 		"exists": exists,
 	})
+}
+
+func (r *Routes) logoutHandler(writer http.ResponseWriter, request *http.Request) {
+	if isUserAuthenticated(request.Context()) {
+		deleteJWTTokenFromCookie(writer)
+	}
+	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }

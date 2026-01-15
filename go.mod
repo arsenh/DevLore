@@ -2,11 +2,10 @@ module github.com/arsenh/DevLore
 
 go 1.25.4
 
-require github.com/sirupsen/logrus v1.9.3
-
 require (
-	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
+	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/sirupsen/logrus v1.9.3
 )
 
 require (
