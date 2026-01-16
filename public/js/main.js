@@ -9,13 +9,20 @@ function debounce(fn, delay) {
 }
 
 function emailExistsFetch(email) {
-  if (typeof email != "string" || email.length < 1) return;
+  if (typeof email != "string" || email.length < 1)
+    return Promise.resolve({ exists: false });
 
-  const url = `/email-exists?email=${email}`;
+  const url = `/email-exists?email=${encodeURIComponent(email)}`;
 
   return fetch(url)
-    .then((data) => data.json())
-    .then((status) => status);
+    .then((response) => {
+      if (!response.ok) throw new Error("Network response was not ok");
+      return response.json();
+    })
+    .catch((error) => {
+      console.error("Error checking email:", error);
+      return { exists: false }; // Fail gracefully
+    });
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -63,132 +70,206 @@ document.addEventListener("DOMContentLoaded", function () {
     const passwordInput = document.getElementById("password");
     const passwordConfirmInput = document.getElementById("password_confirm");
 
-    // Email validation
-    emailInput.addEventListener("blur", function () {
+    // Track validation states
+    let emailCheckInProgress = false;
+    let emailExists = false;
+    let fieldValidation = {
+      email: false,
+      fullName: false,
+      password: false,
+      passwordConfirm: false,
+    };
+
+    // Validation functions
+    function validateEmail(showErrorMsg = true) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!this.value.trim()) {
-        showError(this, "Email is required");
-      } else if (!emailRegex.test(this.value)) {
-        showError(this, "Please enter a valid email address");
+
+      if (!emailInput.value.trim()) {
+        if (showErrorMsg) showError(emailInput, "Email is required");
+        fieldValidation.email = false;
+        return false;
+      } else if (!emailRegex.test(emailInput.value)) {
+        if (showErrorMsg)
+          showError(emailInput, "Please enter a valid email address");
+        fieldValidation.email = false;
+        return false;
+      } else if (emailExists) {
+        if (showErrorMsg) showError(emailInput, "This email is already in use");
+        fieldValidation.email = false;
+        return false;
       } else {
-        clearError(this);
+        if (showErrorMsg) clearError(emailInput);
+        fieldValidation.email = true;
+        return true;
       }
+    }
+
+    function validateFullName(showErrorMsg = true) {
+      if (!fullNameInput.value.trim()) {
+        if (showErrorMsg) showError(fullNameInput, "Full name is required");
+        fieldValidation.fullName = false;
+        return false;
+      } else if (fullNameInput.value.trim().length < 2) {
+        if (showErrorMsg)
+          showError(fullNameInput, "Full name must be at least 2 characters");
+        fieldValidation.fullName = false;
+        return false;
+      } else {
+        if (showErrorMsg) clearError(fullNameInput);
+        fieldValidation.fullName = true;
+        return true;
+      }
+    }
+
+    function validatePassword(showErrorMsg = true) {
+      if (!passwordInput.value) {
+        if (showErrorMsg) showError(passwordInput, "Password is required");
+        fieldValidation.password = false;
+        return false;
+      } else if (passwordInput.value.length < 8) {
+        if (showErrorMsg)
+          showError(passwordInput, "Password must be at least 8 characters");
+        fieldValidation.password = false;
+        return false;
+      } else {
+        if (showErrorMsg) clearError(passwordInput);
+        fieldValidation.password = true;
+        return true;
+      }
+    }
+
+    function validatePasswordConfirm(showErrorMsg = true) {
+      if (!passwordConfirmInput.value) {
+        if (showErrorMsg)
+          showError(passwordConfirmInput, "Please confirm your password");
+        fieldValidation.passwordConfirm = false;
+        return false;
+      } else if (passwordConfirmInput.value !== passwordInput.value) {
+        if (showErrorMsg)
+          showError(passwordConfirmInput, "Passwords do not match");
+        fieldValidation.passwordConfirm = false;
+        return false;
+      } else {
+        if (showErrorMsg) clearError(passwordConfirmInput);
+        fieldValidation.passwordConfirm = true;
+        return true;
+      }
+    }
+
+    // Email validation on blur
+    emailInput.addEventListener("blur", function () {
+      validateEmail(true);
     });
 
-    // Email exist
+    // Clear error on input (when user starts typing)
     emailInput.addEventListener("input", function () {
-      if (this.value.trim()) clearError(this);
+      if (this.value.trim()) {
+        clearError(this);
+        emailExists = false; // Reset the flag when user types
+      }
+      validateEmail(false); // Validate silently to update state
     });
 
-    const debouncedFetch = debounce((event) => {
-      emailExistsFetch(event.target.value).then((status) => {
-        if (status.exists) {
-          console.log(status);
-          showError(emailInput, "this email used");
-        } else {
-          clearError(emailInput);
+    // Debounced email existence check
+    const debouncedFetch = debounce((email) => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      // Only check if email format is valid
+      if (!emailRegex.test(email)) return;
+
+      emailCheckInProgress = true;
+      emailExistsFetch(email).then((status) => {
+        emailCheckInProgress = false;
+
+        // Only show error if the email value hasn't changed
+        if (emailInput.value === email) {
+          if (status.exists) {
+            emailExists = true;
+            showError(emailInput, "This email is already in use");
+            fieldValidation.email = false;
+          } else {
+            emailExists = false;
+            // Only clear if there's an "email exists" error
+            const errorMsg =
+              emailInput.parentElement.querySelector(".error-message");
+            if (
+              errorMsg &&
+              errorMsg.textContent === "This email is already in use"
+            ) {
+              clearError(emailInput);
+              validateEmail(false); // Revalidate silently
+            }
+          }
         }
       });
     }, 500);
 
-    emailInput.addEventListener("keydown", debouncedFetch);
+    // Use 'input' event for email existence check
+    emailInput.addEventListener("input", function () {
+      debouncedFetch(this.value);
+    });
 
     // Full name validation
     fullNameInput.addEventListener("blur", function () {
-      if (!this.value.trim()) {
-        showError(this, "Full name is required");
-      } else if (this.value.trim().length < 2) {
-        showError(this, "Full name must be at least 2 characters");
-      } else {
-        clearError(this);
-      }
+      validateFullName(true);
     });
 
     fullNameInput.addEventListener("input", function () {
       if (this.value.trim()) clearError(this);
+      validateFullName(false); // Validate silently to update state
     });
 
     // Password validation
     passwordInput.addEventListener("blur", function () {
-      if (!this.value) {
-        showError(this, "Password is required");
-      } else if (this.value.length < 8) {
-        showError(this, "Password must be at least 8 characters");
-      } else {
-        clearError(this);
-        // Re-validate password confirmation if it has a value
-        if (passwordConfirmInput.value) {
-          passwordConfirmInput.dispatchEvent(new Event("blur"));
-        }
+      validatePassword(true);
+      // Re-validate password confirmation if it has a value
+      if (passwordConfirmInput.value) {
+        validatePasswordConfirm(true);
       }
     });
 
     passwordInput.addEventListener("input", function () {
       if (this.value) clearError(this);
+      validatePassword(false); // Validate silently to update state
       // Re-validate confirmation on password change
       if (passwordConfirmInput.value) {
-        clearError(passwordConfirmInput);
+        validatePasswordConfirm(false);
       }
     });
 
     // Password confirmation validation
     passwordConfirmInput.addEventListener("blur", function () {
-      if (!this.value) {
-        showError(this, "Please confirm your password");
-      } else if (this.value !== passwordInput.value) {
-        showError(this, "Passwords do not match");
-      } else {
-        clearError(this);
-      }
+      validatePasswordConfirm(true);
     });
 
     passwordConfirmInput.addEventListener("input", function () {
       if (this.value) clearError(this);
+      validatePasswordConfirm(false); // Validate silently to update state
     });
 
     // Form submission validation
     registerForm.addEventListener("submit", function (e) {
-      let isValid = true;
+      e.preventDefault(); // Always prevent default first
 
-      // Validate email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailInput.value.trim()) {
-        showError(emailInput, "Email is required");
-        isValid = false;
-      } else if (!emailRegex.test(emailInput.value)) {
-        showError(emailInput, "Please enter a valid email address");
-        isValid = false;
+      // Check if email check is still in progress
+      if (emailCheckInProgress) {
+        showError(emailInput, "Please wait while we verify your email");
+        return;
       }
 
-      // Validate full name
-      if (!fullNameInput.value.trim()) {
-        showError(fullNameInput, "Full name is required");
-        isValid = false;
-      } else if (fullNameInput.value.trim().length < 2) {
-        showError(fullNameInput, "Full name must be at least 2 characters");
-        isValid = false;
-      }
+      // Validate all fields and show errors
+      const emailValid = validateEmail(true);
+      const fullNameValid = validateFullName(true);
+      const passwordValid = validatePassword(true);
+      const passwordConfirmValid = validatePasswordConfirm(true);
 
-      // Validate password
-      if (!passwordInput.value) {
-        showError(passwordInput, "Password is required");
-        isValid = false;
-      } else if (passwordInput.value.length < 8) {
-        showError(passwordInput, "Password must be at least 8 characters");
-        isValid = false;
-      }
+      const isValid =
+        emailValid && fullNameValid && passwordValid && passwordConfirmValid;
 
-      // Validate password confirmation
-      if (!passwordConfirmInput.value) {
-        showError(passwordConfirmInput, "Please confirm your password");
-        isValid = false;
-      } else if (passwordConfirmInput.value !== passwordInput.value) {
-        showError(passwordConfirmInput, "Passwords do not match");
-        isValid = false;
-      }
-
-      if (!isValid) {
-        e.preventDefault();
+      if (isValid) {
+        // All fields are valid, submit the form
+        this.submit();
+      } else {
         // Focus on first invalid field
         const firstError = registerForm.querySelector(".error-message");
         if (firstError) {
@@ -201,10 +282,26 @@ document.addEventListener("DOMContentLoaded", function () {
   // Login form validation
   const loginForm = document.querySelector('form[action="/auth/login"]');
   if (loginForm) {
+    const loginEmailInput = document.getElementById("email");
+    const loginPasswordInput = document.getElementById("password");
+
+    // Add real-time validation for login form
+    if (loginEmailInput) {
+      loginEmailInput.addEventListener("input", function () {
+        if (this.value.trim()) clearError(this);
+      });
+    }
+
+    if (loginPasswordInput) {
+      loginPasswordInput.addEventListener("input", function () {
+        if (this.value) clearError(this);
+      });
+    }
+
     loginForm.addEventListener("submit", function (e) {
+      e.preventDefault(); // Always prevent default first
+
       let isValid = true;
-      const loginEmailInput = document.getElementById("email");
-      const loginPasswordInput = document.getElementById("password");
 
       // Validate email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -222,8 +319,10 @@ document.addEventListener("DOMContentLoaded", function () {
         isValid = false;
       }
 
-      if (!isValid) {
-        e.preventDefault();
+      if (isValid) {
+        // All fields are valid, submit the form
+        this.submit();
+      } else {
         // Focus on first invalid field
         const firstError = loginForm.querySelector(".error-message");
         if (firstError) {

@@ -322,9 +322,6 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 	password := request.Form.Get("password")
 	passwordConfirm := request.Form.Get("password_confirm")
 
-	// TODO: Validations
-	// Check if this email already exists
-
 	if !govalidator.IsEmail(email) ||
 		(fullName == "") ||
 		(password == "") ||
@@ -338,9 +335,8 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 
 	user := r.userService.GetUserByEmail(ctx, email)
 	if user != nil {
-		// user already exist
-		//TODO: consider to render same register page but with message that user with email is already exist
-		//DELETE: temporary solution is to render BadRequest
+		// The presence of an email address is checked using JavaScript
+		// If the user bypasses JavaScript, an invalid request will be displayed.
 		templates.BadRequest(writer)
 		return
 	}
@@ -353,7 +349,6 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 
 	token, err := auth.GenerateJWTToken(registeredUser.ID, registeredUser.Email, registeredUser.FullName)
 	if err != nil {
-		//TODO: Am I need to remove user from database ????
 		templates.InternalServerError(writer, err)
 		return
 	}
