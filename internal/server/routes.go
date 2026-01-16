@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,6 +24,9 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
+
+//go:embed public
+var publicFS embed.FS
 
 type Routes struct {
 	articleService *service.ArticleService
@@ -48,8 +53,13 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Use(middleware.RealIP)
 	router.Use(chiLogger)
 
-	fs := http.FileServer(http.Dir(config.PublicDir))
-	router.Handle(fmt.Sprintf("/%s/*", config.StaticDir), http.StripPrefix(fmt.Sprintf("/%s/", config.StaticDir), fs))
+	// setup static files
+	publicFiles, err := fs.Sub(publicFS, config.PublicDir)
+	if err != nil {
+		panic(fmt.Errorf("parse static files: %w", err))
+	}
+
+	router.Handle(fmt.Sprintf("/%s/*", config.StaticDir), http.StripPrefix(fmt.Sprintf("/%s/", config.StaticDir), http.FileServerFS(publicFiles)))
 
 	// global 404 not found page
 	router.NotFound(r.notFoundPage)
@@ -381,29 +391,36 @@ func (r *Routes) loginUserHandler(writer http.ResponseWriter, request *http.Requ
 
 	user := r.userService.GetUserByEmail(ctx, email)
 
-	if user != nil {
-
-		// check user password
-		ok := r.userService.CheckUserPassword(ctx, user.ID, password)
-		if !ok {
-			templates.BadRequest(writer)
-			return
+	if user == nil {
+		view := struct {
+			UserName string
+			Email    string
+			Error    string
+		}{
+			UserName: "",
+			Email:    email,
+			Error:    "Authentication failed. Incorrect login or password.",
 		}
+		templates.Render(writer, http.StatusUnauthorized, templates.LoginTemplate, view)
+		return
+	}
 
-		// user exists, password correct, but token is expired or not exist
-		// create new token
-		token, err := auth.GenerateJWTToken(user.ID, user.Email, user.FullName)
-		if err != nil {
-			templates.InternalServerError(writer, err)
-			return
-		}
-		setJWTTokenAsCookie(writer, token)
-	} else {
-		//TODO: show login page with mail and login and error
+	// check user password
+	ok := r.userService.CheckUserPassword(ctx, user.ID, password)
+	if !ok {
 		templates.BadRequest(writer)
 		return
 	}
 
+	// user exists, password correct, but token is expired or not exist
+	// create new token
+	token, err := auth.GenerateJWTToken(user.ID, user.Email, user.FullName)
+	if err != nil {
+		templates.InternalServerError(writer, err)
+		return
+	}
+
+	setJWTTokenAsCookie(writer, token)
 	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }
 

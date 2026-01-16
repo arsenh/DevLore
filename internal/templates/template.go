@@ -1,14 +1,16 @@
 package templates
 
 import (
+	"embed"
 	"fmt"
 	"html/template"
 	"net/http"
-	"path/filepath"
 
-	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/logger"
 )
+
+//go:embed *.html
+var templatesFS embed.FS
 
 const (
 	LayoutTemplate              = "layout"
@@ -27,10 +29,18 @@ const (
 var base *template.Template
 
 func init() {
-	basePath := filepath.Join(config.MainHTMLTemplate)
-	base = template.Must(template.ParseFiles(basePath))
-	logger.L().WithField("path", basePath).Info("rendering template")
-	logger.L().Info("templates are parsed successfully")
+	var err error
+
+	base, err = template.ParseFS(
+		templatesFS,
+		"layout.html",
+	)
+
+	if err != nil {
+		panic(fmt.Errorf("parse base template: %w", err))
+	}
+
+	logger.L().Info("templates are embedded and parsed successfully")
 }
 
 func Render(w http.ResponseWriter, status int, page string, data interface{}) error {
@@ -41,10 +51,8 @@ func Render(w http.ResponseWriter, status int, page string, data interface{}) er
 	}
 
 	//Parse the page template into the clone
-	fullPagePath := filepath.Join(config.TemplatesDir, page)
-
-	if _, err := tmpl.ParseFiles(fullPagePath); err != nil {
-		return fmt.Errorf("parse page template %q: %w", fullPagePath, err)
+	if _, err := tmpl.ParseFS(templatesFS, page); err != nil {
+		return fmt.Errorf("parse page template %q: %w", page, err)
 	}
 
 	//At this point parsing succeeded — safe to write headers

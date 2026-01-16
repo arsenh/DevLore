@@ -3,6 +3,22 @@
 <div class="container">
     <h2>Sign In</h2>
 
+    {{if .Error}}
+    <div
+        class="alert alert-error"
+        style="
+            background-color: #fee;
+            border: 1px solid #fcc;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #c33;
+        "
+    >
+        {{.Error}}
+    </div>
+    {{end}}
+
     <form method="post" action="/auth/login" class="article-form">
         <div class="form-group">
             <label for="email">Email</label>
@@ -11,10 +27,10 @@
                 id="email"
                 name="email"
                 placeholder="Enter your email"
+                value="{{.Email}}"
                 required
             />
         </div>
-
         <div class="form-group">
             <label for="password">Password</label>
             <input
@@ -25,7 +41,6 @@
                 required
             />
         </div>
-
         <div class="form-group">
             <button type="submit" class="btn btn-primary">Sign In</button>
             <a href="/auth/register" class="btn btn-secondary"
