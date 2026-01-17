@@ -1,0 +1,19 @@
+{{/* templates/error-404.html */}} {{define "title"}}Page Not Found{{end}}
+{{define "content"}}
+<div class="container">
+    <div class="article-view">
+        <h1>Operation Not Permitted</h1>
+
+        <div class="article-content">
+            <h3>Only the article author can edit or delete this article.</h3>
+        </div>
+
+        <div class="article-actions">
+            <a href="/dashboard" class="btn btn-primary">Back to Dashboard</a>
+            <a href="/articles/{{.ID}}" class="btn btn-primary"
+                >Back to Article</a
+            >
+        </div>
+    </div>
+</div>
+{{end}}

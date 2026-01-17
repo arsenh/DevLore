@@ -15,6 +15,7 @@ import (
 	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/logger"
 	customMiddlewares "github.com/arsenh/DevLore/internal/middleware"
+	"github.com/arsenh/DevLore/internal/model"
 	"github.com/arsenh/DevLore/internal/service"
 	"github.com/arsenh/DevLore/internal/templates"
 	"github.com/arsenh/DevLore/internal/views"
@@ -68,7 +69,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
 	router.Post("/articles/{id}/delete", r.deleteArticleHandler)
-	router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 	router.Post("/articles/{id}/edit", r.editArticleHandler)
 	router.Get("/search", r.showSearchHandler)
 	router.Get("/email-exists", r.emailExistHandler)
@@ -83,6 +83,7 @@ func (r *Routes) GetRoutes() http.Handler {
 		router.Post("/auth/logout", r.logoutHandler)
 
 		router.Get("/articles/{id}", r.viewArticleHandler)
+		router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 	})
 
 	return router
@@ -135,11 +136,11 @@ func (r *Routes) getIP(request *http.Request) string {
 	return "unknown" // to not broke rate limiter, if address not found, fallback will be used
 }
 
-func (r *Routes) getAuthenticatedUserNameIfAny(ctx context.Context, writer http.ResponseWriter) string {
+func (r *Routes) getAuthenticatedUserIfAny(ctx context.Context, writer http.ResponseWriter) *model.User {
 	if !r.isUserAuthenticated(ctx) {
 		// delete JWT token
 		r.deleteJWTTokenFromCookie(writer)
-		return ""
+		return nil
 	}
 
 	userID := ctx.Value(customMiddlewares.CtxUserID).(int)
@@ -147,10 +148,18 @@ func (r *Routes) getAuthenticatedUserNameIfAny(ctx context.Context, writer http.
 	user, _ := r.userService.GetUserByID(ctx, userID)
 	if user == nil {
 		r.deleteJWTTokenFromCookie(writer)
-		return ""
+		return nil
 	} else {
-		return user.FullName
+		return user
 	}
+}
+
+func (r *Routes) getUserNameIfNotNil(user *model.User) string {
+	userName := ""
+	if user != nil {
+		userName = user.FullName
+	}
+	return userName
 }
 
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
@@ -159,7 +168,7 @@ func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request)
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
-	userName := r.getAuthenticatedUserNameIfAny(ctx, writer)
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
 
 	//TODO: add limit on articles count
 	articleItems, err := r.articleService.GetDashboardData(request.Context())
@@ -170,7 +179,7 @@ func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Requ
 
 	view := &views.DashboardView{
 		BaseView: views.BaseView{
-			UserName: userName,
+			UserName: r.getUserNameIfNotNil(user),
 		},
 		Articles: articleItems,
 	}
@@ -212,7 +221,7 @@ func (r *Routes) createNewArticleHandler(writer http.ResponseWriter, request *ht
 
 func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
-	userName := r.getAuthenticatedUserNameIfAny(ctx, writer)
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
 
 	id, err := r.retrieveId(request)
 	if err != nil {
@@ -226,7 +235,7 @@ func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	view.UserName = userName
+	view.UserName = r.getUserNameIfNotNil(user)
 
 	authorUser, err := r.userService.GetUserByID(ctx, view.Article.UserId)
 	if err != nil {
@@ -262,9 +271,32 @@ func (r *Routes) viewEditArticleHandler(writer http.ResponseWriter, request *htt
 		return
 	}
 
+	ctx := request.Context()
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
+
+	if user == nil {
+		http.Redirect(writer, request, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
 	view, err := r.articleService.GetArticleById(request.Context(), id)
 	if err != nil {
 		templates.BadRequest(writer)
+		return
+	}
+
+	if view.Article.UserId != user.ID {
+		notPermittedView := struct {
+			UserName string
+			ID       int
+		}{
+			UserName: user.FullName,
+			ID:       view.Article.ID,
+		}
+		if err := templates.Render(writer, http.StatusOK, templates.NotPermitted, notPermittedView); err != nil {
+			templates.InternalServerError(writer, err)
+			return
+		}
 		return
 	}
 

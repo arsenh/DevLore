@@ -24,6 +24,7 @@ const (
 	InternalServerErrorTemplate = "500.html"
 	RegisterTemplate            = "register.html"
 	LoginTemplate               = "login.html"
+	NotPermitted                = "not-permitted.html"
 )
 
 var base *template.Template
