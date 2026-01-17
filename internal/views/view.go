@@ -18,6 +18,7 @@ type ArticleFullViewItem struct {
 	ID        int
 	Title     string
 	Content   string
+	UserId    int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -29,7 +30,8 @@ type DashboardView struct {
 
 type ArticleView struct {
 	BaseView
-	Article ArticleFullViewItem
+	Article   ArticleFullViewItem
+	CreatedBy string
 }
 
 type SearchView struct {

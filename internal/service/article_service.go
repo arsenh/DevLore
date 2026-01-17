@@ -51,20 +51,19 @@ func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.Art
 		return nil, err
 	}
 
-	//TODO: update this to get current login user FullName
-	user, _ := s.userRepository.FindByID(ctx, 11)
-
 	view := &views.ArticleView{
 		BaseView: views.BaseView{
-			UserName: user.FullName,
+			UserName: "",
 		},
 		Article: views.ArticleFullViewItem{
 			ID:        article.ID,
 			Title:     article.Title,
 			Content:   article.Content,
+			UserId:    article.UserId,
 			CreatedAt: article.CreatedAt,
 			UpdatedAt: article.UpdatedAt,
 		},
+		CreatedBy: "",
 	}
 
 	return view, nil

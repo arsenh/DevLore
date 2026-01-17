@@ -65,7 +65,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.NotFound(r.notFoundPage)
 
 	router.Get("/", r.rootHandler)
-	router.Get("/articles/{id}", r.viewArticleHandler)
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
 	router.Post("/articles/{id}/delete", r.deleteArticleHandler)
@@ -82,6 +81,8 @@ func (r *Routes) GetRoutes() http.Handler {
 		router.Post("/auth/login", r.loginUserHandler)
 		router.Get("/dashboard", r.dashboardHandler)
 		router.Post("/auth/logout", r.logoutHandler)
+
+		router.Get("/articles/{id}", r.viewArticleHandler)
 	})
 
 	return router
@@ -97,7 +98,7 @@ func (r *Routes) retrieveId(request *http.Request) (int, error) {
 	return id, nil
 }
 
-func setJWTTokenAsCookie(writer http.ResponseWriter, token string) {
+func (r *Routes) setJWTTokenAsCookie(writer http.ResponseWriter, token string) {
 	http.SetCookie(writer, &http.Cookie{
 		Name:     "auth_token",
 		Value:    token,
@@ -109,7 +110,7 @@ func setJWTTokenAsCookie(writer http.ResponseWriter, token string) {
 	})
 }
 
-func deleteJWTTokenFromCookie(writer http.ResponseWriter) {
+func (r *Routes) deleteJWTTokenFromCookie(writer http.ResponseWriter) {
 	http.SetCookie(writer, &http.Cookie{
 		Name:     "auth_token",
 		Value:    "",
@@ -122,16 +123,34 @@ func deleteJWTTokenFromCookie(writer http.ResponseWriter) {
 	})
 }
 
-func isUserAuthenticated(ctx context.Context) bool {
+func (r *Routes) isUserAuthenticated(ctx context.Context) bool {
 	authErr := ctx.Value(customMiddlewares.CtxAuthError)
 	return authErr == nil
 }
 
-func getIP(request *http.Request) string {
+func (r *Routes) getIP(request *http.Request) string {
 	if request.RemoteAddr != "" {
 		return strings.Split(request.RemoteAddr, ":")[0]
 	}
 	return "unknown" // to not broke rate limiter, if address not found, fallback will be used
+}
+
+func (r *Routes) getAuthenticatedUserNameIfAny(ctx context.Context, writer http.ResponseWriter) string {
+	if !r.isUserAuthenticated(ctx) {
+		// delete JWT token
+		r.deleteJWTTokenFromCookie(writer)
+		return ""
+	}
+
+	userID := ctx.Value(customMiddlewares.CtxUserID).(int)
+	//TODO: handle err from service
+	user, _ := r.userService.GetUserByID(ctx, userID)
+	if user == nil {
+		r.deleteJWTTokenFromCookie(writer)
+		return ""
+	} else {
+		return user.FullName
+	}
 }
 
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
@@ -140,24 +159,7 @@ func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request)
 
 func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
-
-	userName := ""
-	if !isUserAuthenticated(ctx) {
-		// something wrong with JWT token
-		// remove from cookie
-		deleteJWTTokenFromCookie(writer)
-		userName = ""
-	} else {
-		userID := ctx.Value(customMiddlewares.CtxUserID).(int)
-		//TODO: handle err from service
-		user, _ := r.userService.GetUserByID(ctx, userID)
-		if user == nil {
-			deleteJWTTokenFromCookie(writer)
-			userName = ""
-		} else {
-			userName = user.FullName
-		}
-	}
+	userName := r.getAuthenticatedUserNameIfAny(ctx, writer)
 
 	//TODO: add limit on articles count
 	articleItems, err := r.articleService.GetDashboardData(request.Context())
@@ -209,19 +211,33 @@ func (r *Routes) createNewArticleHandler(writer http.ResponseWriter, request *ht
 }
 
 func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	ctx := request.Context()
+	userName := r.getAuthenticatedUserNameIfAny(ctx, writer)
+
 	id, err := r.retrieveId(request)
 	if err != nil {
 		templates.BadRequest(writer)
 		return
 	}
 
-	data, err := r.articleService.GetArticleById(request.Context(), id)
+	view, err := r.articleService.GetArticleById(request.Context(), id)
 	if err != nil {
 		templates.NotFound(writer)
 		return
 	}
 
-	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, data); err != nil {
+	view.UserName = userName
+
+	authorUser, err := r.userService.GetUserByID(ctx, view.Article.UserId)
+	if err != nil {
+		templates.InternalServerError(writer, err)
+		return
+	}
+
+	// set user name of article author
+	view.CreatedBy = authorUser.FullName
+
+	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, view); err != nil {
 		templates.InternalServerError(writer, err)
 	}
 }
@@ -306,7 +322,7 @@ func (r *Routes) showSearchHandler(writer http.ResponseWriter, request *http.Req
 func (r *Routes) showRegisterHandler(writer http.ResponseWriter, request *http.Request) {
 
 	// redirect to dashboard if user already authenticated
-	if isUserAuthenticated(request.Context()) {
+	if r.isUserAuthenticated(request.Context()) {
 		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 	}
 
@@ -317,7 +333,7 @@ func (r *Routes) showRegisterHandler(writer http.ResponseWriter, request *http.R
 
 func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.Request) {
 	// redirect to dashboard if user already authenticated
-	if isUserAuthenticated(request.Context()) {
+	if r.isUserAuthenticated(request.Context()) {
 		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 	}
 
@@ -363,13 +379,13 @@ func (r *Routes) registerUserHandler(writer http.ResponseWriter, request *http.R
 		return
 	}
 
-	setJWTTokenAsCookie(writer, token)
+	r.setJWTTokenAsCookie(writer, token)
 	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }
 
 func (r *Routes) loginUserHandler(writer http.ResponseWriter, request *http.Request) {
 	// redirect to dashboard if user already authenticated
-	if isUserAuthenticated(request.Context()) {
+	if r.isUserAuthenticated(request.Context()) {
 		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 	}
 
@@ -420,13 +436,13 @@ func (r *Routes) loginUserHandler(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	setJWTTokenAsCookie(writer, token)
+	r.setJWTTokenAsCookie(writer, token)
 	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }
 
 func (r *Routes) showLoginHandler(writer http.ResponseWriter, request *http.Request) {
 	// redirect to dashboard if user already authenticated
-	if isUserAuthenticated(request.Context()) {
+	if r.isUserAuthenticated(request.Context()) {
 		http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 	}
 
@@ -437,7 +453,7 @@ func (r *Routes) showLoginHandler(writer http.ResponseWriter, request *http.Requ
 
 func (r *Routes) emailExistHandler(writer http.ResponseWriter, request *http.Request) {
 	//rate limiter to give 5 requests per minute
-	limiter := r.rateLimiter.GetLimiterIp(getIP(request))
+	limiter := r.rateLimiter.GetLimiterIp(r.getIP(request))
 
 	if !limiter.Allow() {
 		http.Error(writer, "Too Many Requests", http.StatusTooManyRequests)
@@ -468,8 +484,8 @@ func (r *Routes) emailExistHandler(writer http.ResponseWriter, request *http.Req
 }
 
 func (r *Routes) logoutHandler(writer http.ResponseWriter, request *http.Request) {
-	if isUserAuthenticated(request.Context()) {
-		deleteJWTTokenFromCookie(writer)
+	if r.isUserAuthenticated(request.Context()) {
+		r.deleteJWTTokenFromCookie(writer)
 	}
 	http.Redirect(writer, request, "/dashboard", http.StatusSeeOther)
 }
