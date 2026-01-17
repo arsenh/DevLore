@@ -68,7 +68,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/", r.rootHandler)
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
-	router.Post("/articles/{id}/edit", r.editArticleHandler)
 	router.Get("/search", r.showSearchHandler)
 	router.Get("/email-exists", r.emailExistHandler)
 
@@ -83,6 +82,7 @@ func (r *Routes) GetRoutes() http.Handler {
 
 		router.Get("/articles/{id}", r.viewArticleHandler)
 		router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
+		router.Post("/articles/{id}/edit", r.editArticleHandler)
 		router.Post("/articles/{id}/delete", r.deleteArticleHandler)
 	})
 
@@ -334,9 +334,22 @@ func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	_, err = r.articleService.GetArticleById(request.Context(), id)
+	ctx := request.Context()
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
+
+	if user == nil {
+		http.Redirect(writer, request, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
+	view, err := r.articleService.GetArticleById(request.Context(), id)
 	if err != nil {
 		templates.BadRequest(writer)
+		return
+	}
+
+	if view.Article.UserId != user.ID {
+		r.notPermitted(user.FullName, view.Article.ID, writer)
 		return
 	}
 
@@ -348,13 +361,13 @@ func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Re
 	title := request.Form.Get("title")
 	content := request.Form.Get("content")
 
-	view, err := r.articleService.EditArticleById(request.Context(), id, title, content)
+	newView, err := r.articleService.EditArticleById(request.Context(), id, title, content)
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
 	}
 
-	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, view); err != nil {
+	if err := templates.Render(writer, http.StatusOK, templates.ViewArticleTemplate, newView); err != nil {
 		templates.InternalServerError(writer, err)
 	}
 }
