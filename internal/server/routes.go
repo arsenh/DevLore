@@ -68,7 +68,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.Get("/", r.rootHandler)
 	router.Get("/articles/new", r.showNewArticleHandler)
 	router.Post("/articles/new", r.createNewArticleHandler)
-	router.Post("/articles/{id}/delete", r.deleteArticleHandler)
 	router.Post("/articles/{id}/edit", r.editArticleHandler)
 	router.Get("/search", r.showSearchHandler)
 	router.Get("/email-exists", r.emailExistHandler)
@@ -84,6 +83,7 @@ func (r *Routes) GetRoutes() http.Handler {
 
 		router.Get("/articles/{id}", r.viewArticleHandler)
 		router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
+		router.Post("/articles/{id}/delete", r.deleteArticleHandler)
 	})
 
 	return router
@@ -162,6 +162,19 @@ func (r *Routes) getUserNameIfNotNil(user *model.User) string {
 	return userName
 }
 
+func (r *Routes) notPermitted(fullName string, articleID int, writer http.ResponseWriter) {
+	notPermittedView := struct {
+		UserName string
+		ID       int
+	}{
+		UserName: fullName,
+		ID:       articleID,
+	}
+	if err := templates.Render(writer, http.StatusOK, templates.NotPermitted, notPermittedView); err != nil {
+		templates.InternalServerError(writer, err)
+	}
+}
+
 func (r *Routes) notFoundPage(writer http.ResponseWriter, request *http.Request) {
 	templates.NotFound(writer)
 }
@@ -229,7 +242,7 @@ func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	view, err := r.articleService.GetArticleById(request.Context(), id)
+	view, err := r.articleService.GetArticleById(ctx, id)
 	if err != nil {
 		templates.NotFound(writer)
 		return
@@ -257,7 +270,26 @@ func (r *Routes) deleteArticleHandler(writer http.ResponseWriter, request *http.
 		templates.BadRequest(writer)
 	}
 
-	if err = r.articleService.DeleteArticleById(request.Context(), id); err != nil {
+	ctx := request.Context()
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
+
+	if user == nil {
+		http.Redirect(writer, request, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
+	view, err := r.articleService.GetArticleById(ctx, id)
+	if err != nil {
+		templates.NotFound(writer)
+		return
+	}
+
+	if view.Article.UserId != user.ID {
+		r.notPermitted(user.FullName, view.Article.ID, writer)
+		return
+	}
+
+	if err = r.articleService.DeleteArticleById(ctx, id); err != nil {
 		templates.InternalServerError(writer, err)
 	}
 
@@ -281,22 +313,12 @@ func (r *Routes) viewEditArticleHandler(writer http.ResponseWriter, request *htt
 
 	view, err := r.articleService.GetArticleById(request.Context(), id)
 	if err != nil {
-		templates.BadRequest(writer)
+		templates.NotFound(writer)
 		return
 	}
 
 	if view.Article.UserId != user.ID {
-		notPermittedView := struct {
-			UserName string
-			ID       int
-		}{
-			UserName: user.FullName,
-			ID:       view.Article.ID,
-		}
-		if err := templates.Render(writer, http.StatusOK, templates.NotPermitted, notPermittedView); err != nil {
-			templates.InternalServerError(writer, err)
-			return
-		}
+		r.notPermitted(user.FullName, view.Article.ID, writer)
 		return
 	}
 
