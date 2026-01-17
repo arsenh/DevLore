@@ -15,7 +15,12 @@
         <main>{{block "content" .}}{{end}}</main>
 
         <footer>
-            <small>© 2025</small>
+            <small
+                >©
+                <script>
+                    document.write(new Date().getFullYear());
+                </script></small
+            >
         </footer>
     </body>
 </html>
