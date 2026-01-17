@@ -93,7 +93,6 @@ func (s *ArticleService) SaveArticle(ctx context.Context, title string, content 
 }
 
 func (s *ArticleService) DeleteArticleById(ctx context.Context, id int) error {
-	//TODO: Need to check userId, only article owner can delete!
 	if err := s.articleRepository.Delete(ctx, id); err != nil {
 		return logger.LogAndErr("failed to delete article from database")
 	}
@@ -101,7 +100,6 @@ func (s *ArticleService) DeleteArticleById(ctx context.Context, id int) error {
 }
 
 func (s *ArticleService) EditArticleById(ctx context.Context, id int, title string, content string) (*views.ArticleView, error) {
-	//TODO: Need to check userId, only article owner can edit!
 	article, err := s.articleRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, logger.LogAndErr("failed to get article by id = %d", id)
@@ -125,7 +123,6 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 		return nil, logger.LogAndErr("failed to add updated article by id = %d", id)
 	}
 
-	//TODO: update this to get current login user FullName
 	user, _ := s.userRepository.FindByID(ctx, 11)
 
 	view := &views.ArticleView{
@@ -146,7 +143,6 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 
 func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string) (*views.SearchView, error) {
 
-	//TODO: update this to get current login user FullName
 	user, _ := s.userRepository.FindByID(ctx, 11)
 
 	view := &views.SearchView{

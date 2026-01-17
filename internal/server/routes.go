@@ -75,9 +75,9 @@ func (r *Routes) GetRoutes() http.Handler {
 		router.Post("/auth/register", r.registerUserHandler)
 		router.Get("/auth/login", r.showLoginHandler)
 		router.Post("/auth/login", r.loginUserHandler)
-		router.Get("/dashboard", r.dashboardHandler)
 		router.Post("/auth/logout", r.logoutHandler)
 
+		router.Get("/dashboard", r.dashboardHandler)
 		router.Get("/articles/{id}", r.viewArticleHandler)
 		router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 		router.Post("/articles/{id}/edit", r.editArticleHandler)
@@ -144,7 +144,6 @@ func (r *Routes) getAuthenticatedUserIfAny(ctx context.Context, writer http.Resp
 	}
 
 	userID := ctx.Value(customMiddlewares.CtxUserID).(int)
-	//TODO: handle err from service
 	user, _ := r.userService.GetUserByID(ctx, userID)
 	if user == nil {
 		r.deleteJWTTokenFromCookie(writer)
@@ -183,7 +182,6 @@ func (r *Routes) dashboardHandler(writer http.ResponseWriter, request *http.Requ
 	ctx := request.Context()
 	user := r.getAuthenticatedUserIfAny(ctx, writer)
 
-	//TODO: add limit on articles count
 	articleItems, err := r.articleService.GetDashboardData(request.Context())
 	if err != nil {
 		templates.InternalServerError(writer, err)
