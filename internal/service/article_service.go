@@ -69,19 +69,17 @@ func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.Art
 	return view, nil
 }
 
-func (s *ArticleService) SaveArticle(ctx context.Context, title string, content string) (int, error) {
-	//TODO: this function my be receive also current UserID, but for now it will be hardcoded.
-	userId := 777 //TODO: remove this value, its for testing in dummy repository.
-	id := 777     // TODO: this is article id, which needs to be generated in this place.
+func (s *ArticleService) SaveArticle(ctx context.Context, title string, content string, userID int) (int, error) {
 	if title == "" || content == "" {
 		return -1, fmt.Errorf("the title and content of article must be not empty")
 	}
 
+	id := 999 // TODO: use uuid lib for ID generation
 	newArticle := &model.Article{
 		ID:        id,
 		Title:     title,
 		Content:   content,
-		UserId:    userId,
+		UserId:    userID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

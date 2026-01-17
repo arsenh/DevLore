@@ -66,8 +66,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.NotFound(r.notFoundPage)
 
 	router.Get("/", r.rootHandler)
-	router.Get("/articles/new", r.showNewArticleHandler)
-	router.Post("/articles/new", r.createNewArticleHandler)
 	router.Get("/search", r.showSearchHandler)
 	router.Get("/email-exists", r.emailExistHandler)
 
@@ -84,6 +82,8 @@ func (r *Routes) GetRoutes() http.Handler {
 		router.Get("/articles/{id}/edit", r.viewEditArticleHandler)
 		router.Post("/articles/{id}/edit", r.editArticleHandler)
 		router.Post("/articles/{id}/delete", r.deleteArticleHandler)
+		router.Get("/articles/new", r.showNewArticleHandler)
+		router.Post("/articles/new", r.createNewArticleHandler)
 	})
 
 	return router
@@ -208,6 +208,14 @@ func (r *Routes) rootHandler(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (r *Routes) showNewArticleHandler(writer http.ResponseWriter, request *http.Request) {
+	ctx := request.Context()
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
+
+	if user == nil {
+		http.Redirect(writer, request, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
 	// render form for new article creation
 	if err := templates.Render(writer, http.StatusOK, templates.NewArticleTemplate, nil); err != nil {
 		templates.InternalServerError(writer, err)
@@ -216,15 +224,20 @@ func (r *Routes) showNewArticleHandler(writer http.ResponseWriter, request *http
 
 func (r *Routes) createNewArticleHandler(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
+
+	if user == nil {
+		http.Redirect(writer, request, "/auth/login", http.StatusSeeOther)
+		return
+	}
 
 	if err := request.ParseForm(); err != nil {
 		templates.BadRequest(writer)
 		return
 	}
-	//TODO: need to get also UserId which created the article.
 	title := request.Form.Get("title")
 	content := request.Form.Get("content")
-	id, err := r.articleService.SaveArticle(ctx, title, content)
+	id, err := r.articleService.SaveArticle(ctx, title, content, user.ID)
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
