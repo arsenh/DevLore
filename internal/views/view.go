@@ -1,9 +1,5 @@
 package views
 
-import (
-	"time"
-)
-
 type BaseView struct {
 	UserName string
 }
@@ -11,7 +7,7 @@ type BaseView struct {
 type ArticleShortItem struct {
 	ID        int
 	Title     string
-	UpdatedAt time.Time
+	UpdatedAt string
 }
 
 type ArticleFullViewItem struct {
@@ -19,8 +15,8 @@ type ArticleFullViewItem struct {
 	Title     string
 	Content   string
 	UserId    int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt string
+	UpdatedAt string
 }
 
 type DashboardView struct {

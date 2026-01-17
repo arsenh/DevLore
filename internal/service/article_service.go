@@ -11,6 +11,8 @@ import (
 	"github.com/arsenh/DevLore/internal/views"
 )
 
+const articleTimeFormat = "Jan 2, 2006 • 15:04"
+
 type ArticleService struct {
 	articleRepository model.ArticleRepository
 	userRepository    model.UserRepository
@@ -35,7 +37,7 @@ func (s *ArticleService) GetDashboardData(ctx context.Context) ([]views.ArticleS
 		articleItem := views.ArticleShortItem{
 			ID:        article.ID,
 			Title:     article.Title,
-			UpdatedAt: article.UpdatedAt,
+			UpdatedAt: article.UpdatedAt.Local().Format(articleTimeFormat),
 		}
 
 		articleItems = append(articleItems, articleItem)
@@ -60,8 +62,8 @@ func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.Art
 			Title:     article.Title,
 			Content:   article.Content,
 			UserId:    article.UserId,
-			CreatedAt: article.CreatedAt,
-			UpdatedAt: article.UpdatedAt,
+			CreatedAt: article.CreatedAt.Local().Format(articleTimeFormat),
+			UpdatedAt: article.UpdatedAt.Local().Format(articleTimeFormat),
 		},
 		CreatedBy: "",
 	}
@@ -134,8 +136,8 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 			ID:        newArticle.ID,
 			Title:     newArticle.Title,
 			Content:   newArticle.Content,
-			CreatedAt: newArticle.CreatedAt,
-			UpdatedAt: newArticle.UpdatedAt,
+			CreatedAt: newArticle.CreatedAt.Local().Format(articleTimeFormat),
+			UpdatedAt: newArticle.UpdatedAt.Local().Format(articleTimeFormat),
 		},
 	}
 
@@ -169,7 +171,7 @@ func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string
 		articleShortView := views.ArticleShortItem{
 			ID:        article.ID,
 			Title:     article.Title,
-			UpdatedAt: article.UpdatedAt,
+			UpdatedAt: article.UpdatedAt.Local().Format(articleTimeFormat),
 		}
 
 		view.Articles = append(view.Articles, articleShortView)
