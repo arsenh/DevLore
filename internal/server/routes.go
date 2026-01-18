@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/arsenh/DevLore/internal/service"
 	"github.com/arsenh/DevLore/internal/templates"
 	"github.com/arsenh/DevLore/internal/views"
+	"github.com/google/uuid"
 
 	"github.com/asaskevich/govalidator"
 
@@ -66,7 +66,6 @@ func (r *Routes) GetRoutes() http.Handler {
 	router.NotFound(r.notFoundPage)
 
 	router.Get("/", r.rootHandler)
-	router.Get("/search", r.showSearchHandler)
 	router.Get("/email-exists", r.emailExistHandler)
 
 	router.Group(func(router chi.Router) {
@@ -84,17 +83,18 @@ func (r *Routes) GetRoutes() http.Handler {
 		router.Post("/articles/{id}/delete", r.deleteArticleHandler)
 		router.Get("/articles/new", r.showNewArticleHandler)
 		router.Post("/articles/new", r.createNewArticleHandler)
+		router.Get("/search", r.showSearchHandler)
 	})
 
 	return router
 }
 
-func (r *Routes) retrieveId(request *http.Request) (int, error) {
+func (r *Routes) retrieveId(request *http.Request) (uuid.UUID, error) {
 	idStr := chi.URLParam(request, "id")
 
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return -1, logger.LogAndErr("id cannot be parsed into integer")
+		return uuid.Nil, logger.LogAndErr("id cannot be parsed into UUID")
 	}
 	return id, nil
 }
@@ -143,7 +143,7 @@ func (r *Routes) getAuthenticatedUserIfAny(ctx context.Context, writer http.Resp
 		return nil
 	}
 
-	userID := ctx.Value(customMiddlewares.CtxUserID).(int)
+	userID := ctx.Value(customMiddlewares.CtxUserID).(uuid.UUID)
 	user, _ := r.userService.GetUserByID(ctx, userID)
 	if user == nil {
 		r.deleteJWTTokenFromCookie(writer)
@@ -161,10 +161,10 @@ func (r *Routes) getUserNameIfNotNil(user *model.User) string {
 	return userName
 }
 
-func (r *Routes) notPermitted(fullName string, articleID int, writer http.ResponseWriter) {
+func (r *Routes) notPermitted(fullName string, articleID uuid.UUID, writer http.ResponseWriter) {
 	notPermittedView := struct {
 		UserName string
-		ID       int
+		ID       uuid.UUID
 	}{
 		UserName: fullName,
 		ID:       articleID,
@@ -214,8 +214,12 @@ func (r *Routes) showNewArticleHandler(writer http.ResponseWriter, request *http
 		return
 	}
 
+	view := views.BaseView{
+		UserName: r.getUserNameIfNotNil(user),
+	}
+
 	// render form for new article creation
-	if err := templates.Render(writer, http.StatusOK, templates.NewArticleTemplate, nil); err != nil {
+	if err := templates.Render(writer, http.StatusOK, templates.NewArticleTemplate, view); err != nil {
 		templates.InternalServerError(writer, err)
 	}
 }
@@ -240,7 +244,7 @@ func (r *Routes) createNewArticleHandler(writer http.ResponseWriter, request *ht
 		templates.InternalServerError(writer, err)
 		return
 	}
-	http.Redirect(writer, request, fmt.Sprintf("/articles/%d", id), http.StatusSeeOther)
+	http.Redirect(writer, request, fmt.Sprintf("/articles/%s", id.String()), http.StatusSeeOther)
 }
 
 func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Request) {
@@ -261,7 +265,7 @@ func (r *Routes) viewArticleHandler(writer http.ResponseWriter, request *http.Re
 
 	view.UserName = r.getUserNameIfNotNil(user)
 
-	authorUser, err := r.userService.GetUserByID(ctx, view.Article.UserId)
+	authorUser, err := r.userService.GetUserByID(ctx, uuid.MustParse(view.Article.UserId)) // MustParse becouse id from service must be valid
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
@@ -295,8 +299,8 @@ func (r *Routes) deleteArticleHandler(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	if view.Article.UserId != user.ID {
-		r.notPermitted(user.FullName, view.Article.ID, writer)
+	if uuid.MustParse(view.Article.UserId) != user.ID {
+		r.notPermitted(user.FullName, uuid.MustParse(view.Article.ID), writer)
 		return
 	}
 
@@ -328,8 +332,8 @@ func (r *Routes) viewEditArticleHandler(writer http.ResponseWriter, request *htt
 		return
 	}
 
-	if view.Article.UserId != user.ID {
-		r.notPermitted(user.FullName, view.Article.ID, writer)
+	if uuid.MustParse(view.Article.UserId) != user.ID {
+		r.notPermitted(user.FullName, uuid.MustParse(view.Article.ID), writer)
 		return
 	}
 
@@ -359,8 +363,8 @@ func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	if view.Article.UserId != user.ID {
-		r.notPermitted(user.FullName, view.Article.ID, writer)
+	if uuid.MustParse(view.Article.UserId) != user.ID {
+		r.notPermitted(user.FullName, uuid.MustParse(view.Article.ID), writer)
 		return
 	}
 
@@ -373,6 +377,7 @@ func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Re
 	content := request.Form.Get("content")
 
 	newView, err := r.articleService.EditArticleById(request.Context(), id, title, content)
+	newView.UserName = r.getUserNameIfNotNil(user)
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
@@ -385,9 +390,12 @@ func (r *Routes) editArticleHandler(writer http.ResponseWriter, request *http.Re
 
 func (r *Routes) showSearchHandler(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
+	user := r.getAuthenticatedUserIfAny(ctx, writer)
+
 	query := strings.TrimSpace(request.URL.Query().Get("q"))
 
 	view, err := r.articleService.SearchArticlesByQuery(ctx, query)
+	view.UserName = r.getUserNameIfNotNil(user)
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
@@ -545,9 +553,6 @@ func (r *Routes) emailExistHandler(writer http.ResponseWriter, request *http.Req
 	if len(email) > 255 {
 		email = ""
 	}
-
-	logger.L().Infoln("email: ", email)
-	logger.L().Infoln("email len: ", len(email))
 
 	exists := false
 	if user := r.userService.GetUserByEmail(request.Context(), email); user != nil {

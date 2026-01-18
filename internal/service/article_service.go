@@ -9,6 +9,7 @@ import (
 	"github.com/arsenh/DevLore/internal/model"
 	"github.com/arsenh/DevLore/internal/repository"
 	"github.com/arsenh/DevLore/internal/views"
+	"github.com/google/uuid"
 )
 
 const articleTimeFormat = "Jan 2, 2006 • 15:04"
@@ -35,7 +36,7 @@ func (s *ArticleService) GetDashboardData(ctx context.Context) ([]views.ArticleS
 
 	for _, article := range articles {
 		articleItem := views.ArticleShortItem{
-			ID:        article.ID,
+			ID:        article.ID.String(),
 			Title:     article.Title,
 			UpdatedAt: article.UpdatedAt.Local().Format(articleTimeFormat),
 		}
@@ -46,7 +47,7 @@ func (s *ArticleService) GetDashboardData(ctx context.Context) ([]views.ArticleS
 	return articleItems, nil
 }
 
-func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.ArticleView, error) {
+func (s *ArticleService) GetArticleById(ctx context.Context, id uuid.UUID) (*views.ArticleView, error) {
 	article, err := s.articleRepository.FindByID(ctx, id)
 	if err != nil {
 		logger.L().Warnf("the article id = %d not found", id)
@@ -58,10 +59,10 @@ func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.Art
 			UserName: "",
 		},
 		Article: views.ArticleFullViewItem{
-			ID:        article.ID,
+			ID:        article.ID.String(),
 			Title:     article.Title,
 			Content:   article.Content,
-			UserId:    article.UserId,
+			UserId:    article.UserId.String(),
 			CreatedAt: article.CreatedAt.Local().Format(articleTimeFormat),
 			UpdatedAt: article.UpdatedAt.Local().Format(articleTimeFormat),
 		},
@@ -71,12 +72,13 @@ func (s *ArticleService) GetArticleById(ctx context.Context, id int) (*views.Art
 	return view, nil
 }
 
-func (s *ArticleService) SaveArticle(ctx context.Context, title string, content string, userID int) (int, error) {
+func (s *ArticleService) SaveArticle(ctx context.Context, title string, content string, userID uuid.UUID) (uuid.UUID, error) {
 	if title == "" || content == "" {
-		return -1, fmt.Errorf("the title and content of article must be not empty")
+		return uuid.Nil, fmt.Errorf("the title and content of article must be not empty")
 	}
 
-	id := 999 // TODO: use uuid lib for ID generation
+	id := uuid.New() // generate for new article
+
 	newArticle := &model.Article{
 		ID:        id,
 		Title:     title,
@@ -87,19 +89,19 @@ func (s *ArticleService) SaveArticle(ctx context.Context, title string, content 
 	}
 
 	if err := s.articleRepository.Create(ctx, newArticle); err != nil {
-		return -1, logger.LogAndErr("failed to store new article in database")
+		return uuid.Nil, logger.LogAndErr("failed to store new article in database")
 	}
 	return id, nil
 }
 
-func (s *ArticleService) DeleteArticleById(ctx context.Context, id int) error {
+func (s *ArticleService) DeleteArticleById(ctx context.Context, id uuid.UUID) error {
 	if err := s.articleRepository.Delete(ctx, id); err != nil {
 		return logger.LogAndErr("failed to delete article from database")
 	}
 	return nil
 }
 
-func (s *ArticleService) EditArticleById(ctx context.Context, id int, title string, content string) (*views.ArticleView, error) {
+func (s *ArticleService) EditArticleById(ctx context.Context, id uuid.UUID, title string, content string) (*views.ArticleView, error) {
 	article, err := s.articleRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, logger.LogAndErr("failed to get article by id = %d", id)
@@ -114,7 +116,6 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 		UpdatedAt: time.Now(),
 	}
 
-	//TODO: optimize to have direct update function in repository.
 	if err := s.DeleteArticleById(ctx, id); err != nil {
 		return nil, logger.LogAndErr("failed to delete article by id = %d", id)
 	}
@@ -123,14 +124,12 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 		return nil, logger.LogAndErr("failed to add updated article by id = %d", id)
 	}
 
-	user, _ := s.userRepository.FindByID(ctx, 11)
-
 	view := &views.ArticleView{
 		BaseView: views.BaseView{
-			UserName: user.FullName,
+			UserName: "",
 		},
 		Article: views.ArticleFullViewItem{
-			ID:        newArticle.ID,
+			ID:        newArticle.ID.String(),
 			Title:     newArticle.Title,
 			Content:   newArticle.Content,
 			CreatedAt: newArticle.CreatedAt.Local().Format(articleTimeFormat),
@@ -142,13 +141,10 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id int, title stri
 }
 
 func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string) (*views.SearchView, error) {
-
-	user, _ := s.userRepository.FindByID(ctx, 11)
-
 	view := &views.SearchView{
 		DashboardView: views.DashboardView{
 			BaseView: views.BaseView{
-				UserName: user.FullName,
+				UserName: "",
 			},
 		},
 		Query: query,
@@ -165,7 +161,7 @@ func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string
 
 	for _, article := range articles {
 		articleShortView := views.ArticleShortItem{
-			ID:        article.ID,
+			ID:        article.ID.String(),
 			Title:     article.Title,
 			UpdatedAt: article.UpdatedAt.Local().Format(articleTimeFormat),
 		}

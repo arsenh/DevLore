@@ -5,16 +5,16 @@ type BaseView struct {
 }
 
 type ArticleShortItem struct {
-	ID        int
+	ID        string
 	Title     string
 	UpdatedAt string
 }
 
 type ArticleFullViewItem struct {
-	ID        int
+	ID        string
 	Title     string
 	Content   string
-	UserId    int
+	UserId    string
 	CreatedAt string
 	UpdatedAt string
 }

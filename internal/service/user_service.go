@@ -7,6 +7,7 @@ import (
 
 	"github.com/arsenh/DevLore/internal/model"
 	"github.com/arsenh/DevLore/internal/repository"
+	"github.com/google/uuid"
 )
 
 type UserService struct {
@@ -19,7 +20,7 @@ func NewUserService() *UserService {
 	}
 }
 
-func (u *UserService) GetUserByID(ctx context.Context, id int) (*model.User, error) {
+func (u *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	//TODO: handle FindByID error on real database to recognize DB error
 	user, _ := u.userRepository.FindByID(ctx, id)
 	//if err != nil {
@@ -31,7 +32,7 @@ func (u *UserService) GetUserByID(ctx context.Context, id int) (*model.User, err
 func (u *UserService) RegisterUser(ctx context.Context, email string, password string, fullName string) (*model.User, error) {
 
 	user := &model.User{
-		ID:        777,
+		ID:        uuid.New(),
 		FullName:  fullName,
 		Email:     email,
 		Password:  password, // TODO: need to create HASH on password
@@ -51,7 +52,7 @@ func (u *UserService) GetUserByEmail(ctx context.Context, email string) *model.U
 	return user
 }
 
-func (u *UserService) CheckUserPassword(ctx context.Context, userID int, inputPassword string) bool {
+func (u *UserService) CheckUserPassword(ctx context.Context, userID uuid.UUID, inputPassword string) bool {
 	user, err := u.userRepository.FindByID(ctx, userID)
 	if err != nil {
 		return false

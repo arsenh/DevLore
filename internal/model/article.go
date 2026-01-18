@@ -1,12 +1,16 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Article struct {
-	ID        int
+	ID        uuid.UUID
 	Title     string
 	Content   string
-	UserId    int
+	UserId    uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

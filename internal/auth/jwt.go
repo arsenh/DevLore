@@ -7,17 +7,18 @@ import (
 
 	"github.com/arsenh/DevLore/internal/config"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type AuthUser struct {
-	ID       int
+	ID       uuid.UUID
 	Email    string
 	FullName string
 }
 
-func GenerateJWTToken(userID int, email string, fullName string) (string, error) {
+func GenerateJWTToken(userID uuid.UUID, email string, fullName string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":        userID,
+		"id":        userID.String(),
 		"email":     email,
 		"full_name": fullName,
 		"exp":       time.Now().Add(time.Hour).Unix(),
@@ -30,7 +31,7 @@ func GenerateJWTToken(userID int, email string, fullName string) (string, error)
 
 func ParseJWTToken(tokenString string) (*AuthUser, error) {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
-		// Prevent "alg:none" attack
+		// Prevent alg:none attack
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
@@ -46,12 +47,18 @@ func ParseJWTToken(tokenString string) (*AuthUser, error) {
 		return nil, errors.New("invalid claims")
 	}
 
-	// Extract fields
-	id, ok := claims["id"].(float64) // JSON numbers are float64
+	// --- UUID ---
+	idStr, ok := claims["id"].(string)
 	if !ok {
 		return nil, errors.New("id missing")
 	}
 
+	userID, err := uuid.Parse(idStr)
+	if err != nil {
+		return nil, errors.New("invalid user id")
+	}
+
+	// --- Other fields ---
 	email, ok := claims["email"].(string)
 	if !ok {
 		return nil, errors.New("email missing")
@@ -63,7 +70,7 @@ func ParseJWTToken(tokenString string) (*AuthUser, error) {
 	}
 
 	return &AuthUser{
-		ID:       int(id),
+		ID:       userID,
 		FullName: fullName,
 		Email:    email,
 	}, nil
