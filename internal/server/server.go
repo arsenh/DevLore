@@ -30,7 +30,11 @@ func (s *HTTPServer) notifyContext() (context.Context, context.CancelFunc) {
 func NewHTTPServer(addr string) *HTTPServer {
 	rateLimiter := NewRateLimiter()
 	db := database.NewDbContext()
-	db.MustConnect()
+	db.MustConnect() // will panic if database connection failed
+
+	//apply migrations, panic if something goes wrong
+	database.RunMigrations()
+
 	articleService := service.NewArticleService(db)
 	userService := service.NewUserService(db)
 

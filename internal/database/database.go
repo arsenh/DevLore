@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/arsenh/DevLore/internal/config"
 	"github.com/arsenh/DevLore/internal/logger"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -52,6 +53,7 @@ func (d *DbContext) MustConnect() {
 	}
 
 	logger.L().Infoln("connected to the database successfully.")
+	config.DatabaseConnectionString = dbConnStr
 }
 
 func (d *DbContext) Close() {
