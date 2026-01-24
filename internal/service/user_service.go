@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/arsenh/DevLore/internal/database"
 	"github.com/arsenh/DevLore/internal/model"
 	"github.com/arsenh/DevLore/internal/repository"
 	"github.com/google/uuid"
@@ -14,7 +15,7 @@ type UserService struct {
 	userRepository model.UserRepository
 }
 
-func NewUserService() *UserService {
+func NewUserService(db *database.DbContext) *UserService {
 	return &UserService{
 		userRepository: repository.NewDummyUserRepository(),
 	}

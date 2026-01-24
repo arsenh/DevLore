@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/arsenh/DevLore/internal/database"
 	"github.com/arsenh/DevLore/internal/logger"
 	"github.com/arsenh/DevLore/internal/model"
 	"github.com/arsenh/DevLore/internal/repository"
@@ -19,7 +20,7 @@ type ArticleService struct {
 	userRepository    model.UserRepository
 }
 
-func NewArticleService() *ArticleService {
+func NewArticleService(db *database.DbContext) *ArticleService {
 	return &ArticleService{
 		articleRepository: repository.NewDummyArticleRepository(),
 		userRepository:    repository.NewDummyUserRepository(),
