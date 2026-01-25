@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/arsenh/DevLore/internal/database"
 	"github.com/arsenh/DevLore/internal/logger"
@@ -22,7 +21,7 @@ type ArticleService struct {
 
 func NewArticleService(db *database.DbContext) *ArticleService {
 	return &ArticleService{
-		articleRepository: repository.NewDummyArticleRepository(),
+		articleRepository: repository.NewPostgresArticleRepository(db),
 		userRepository:    repository.NewDummyUserRepository(),
 	}
 }
@@ -51,7 +50,7 @@ func (s *ArticleService) GetDashboardData(ctx context.Context) ([]views.ArticleS
 func (s *ArticleService) GetArticleById(ctx context.Context, id uuid.UUID) (*views.ArticleView, error) {
 	article, err := s.articleRepository.FindByID(ctx, id)
 	if err != nil {
-		logger.L().Warnf("the article id = %d not found", id)
+		logger.L().Warnf("the article id = %s not found", id.String())
 		return nil, err
 	}
 
@@ -78,21 +77,17 @@ func (s *ArticleService) SaveArticle(ctx context.Context, title string, content 
 		return uuid.Nil, fmt.Errorf("the title and content of article must be not empty")
 	}
 
-	id := uuid.New() // generate for new article
-
+	// ID, CreateAt and UpdatedAt will be generated in database side
 	newArticle := &model.Article{
-		ID:        id,
-		Title:     title,
-		Content:   content,
-		UserId:    userID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Title:   title,
+		Content: content,
+		UserId:  userID,
 	}
 
 	if err := s.articleRepository.Create(ctx, newArticle); err != nil {
 		return uuid.Nil, logger.LogAndErr("failed to store new article in database")
 	}
-	return id, nil
+	return newArticle.ID, nil
 }
 
 func (s *ArticleService) DeleteArticleById(ctx context.Context, id uuid.UUID) error {
@@ -108,13 +103,12 @@ func (s *ArticleService) EditArticleById(ctx context.Context, id uuid.UUID, titl
 		return nil, logger.LogAndErr("failed to get article by id = %d", id)
 	}
 
+	// CreatedAt, UpdatedAt fields must be set by database
 	newArticle := model.Article{
-		ID:        article.ID,
-		Title:     title,
-		Content:   content,
-		UserId:    article.UserId,
-		CreatedAt: article.CreatedAt,
-		UpdatedAt: time.Now(),
+		ID:      article.ID,
+		Title:   title,
+		Content: content,
+		UserId:  article.UserId,
 	}
 
 	if err := s.DeleteArticleById(ctx, id); err != nil {
