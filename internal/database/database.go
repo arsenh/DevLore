@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -29,15 +30,21 @@ func (d *DbContext) MustConnect() {
 		panic(err)
 	}
 
-	dbConnStr := os.Getenv("DATABASE_URL")
+	dbConnectionURL := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		os.Getenv("POSTGRES_USER"),
+		os.Getenv("POSTGRES_PASSWORD"),
+		os.Getenv("POSTGRES_HOST"),
+		os.Getenv("POSTGRES_PORT"),
+		os.Getenv("POSTGRES_DB"),
+	)
 
-	if dbConnStr == "" {
+	if dbConnectionURL == "" {
 		msg := "invalid database connection string.\n please specify env variable DATABASE_URL."
 		logger.L().Fatalln(msg)
 	}
 
-	//TODO: implement pool.Close() on app exist or panic
-	pool, err := pgxpool.New(context.Background(), dbConnStr)
+	pool, err := pgxpool.New(context.Background(), dbConnectionURL)
 	if err != nil {
 		logger.L().Infoln("faild connect to database.")
 		panic(err)
@@ -53,7 +60,7 @@ func (d *DbContext) MustConnect() {
 	}
 
 	logger.L().Infoln("connected to the database successfully.")
-	config.DatabaseConnectionString = dbConnStr
+	config.DatabaseConnectionString = dbConnectionURL
 }
 
 func (d *DbContext) Close() {

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/arsenh/DevLore/internal/database"
+	"github.com/arsenh/DevLore/internal/logger"
 	"github.com/arsenh/DevLore/internal/service"
 )
 
@@ -27,7 +27,7 @@ func (s *HTTPServer) notifyContext() (context.Context, context.CancelFunc) {
 	)
 }
 
-func NewHTTPServer(addr string) *HTTPServer {
+func NewHTTPServer() *HTTPServer {
 	rateLimiter := NewRateLimiter()
 	db := database.NewDbContext()
 	db.MustConnect() // will panic if database connection failed
@@ -38,8 +38,9 @@ func NewHTTPServer(addr string) *HTTPServer {
 	articleService := service.NewArticleService(db)
 	userService := service.NewUserService(db)
 
+	// after migrations and database setup, all environment variables is loaded
 	return &HTTPServer{
-		addr:      addr,
+		addr:      os.Getenv("APP_ADDR"),
 		routes:    NewRoutes(articleService, userService, rateLimiter).GetRoutes(),
 		dbContext: db,
 	}
@@ -56,7 +57,7 @@ func (s *HTTPServer) Start() {
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
+			logger.L().Fatalln(err)
 		}
 
 	}()
