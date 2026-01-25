@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/arsenh/DevLore/internal/database"
@@ -22,7 +23,7 @@ type ArticleService struct {
 func NewArticleService(db *database.DbContext) *ArticleService {
 	return &ArticleService{
 		articleRepository: repository.NewPostgresArticleRepository(db),
-		userRepository:    repository.NewDummyUserRepository(),
+		userRepository:    repository.NewPostgresUserRepository(db),
 	}
 }
 
@@ -141,6 +142,7 @@ func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string
 			BaseView: views.BaseView{
 				UserName: "",
 			},
+			Articles: []views.ArticleShortItem{},
 		},
 		Query: query,
 	}
@@ -150,7 +152,11 @@ func (s *ArticleService) SearchArticlesByQuery(ctx context.Context, query string
 	}
 
 	articles, err := s.articleRepository.Search(ctx, query)
+
 	if err != nil {
+		if errors.Is(err, repository.ErrMatchArticlesNotFound) {
+			return view, nil
+		}
 		return nil, logger.LogAndErr("failed to search articles with query = %s", query)
 	}
 

@@ -11,6 +11,7 @@ import (
 )
 
 var ErrArticleNotFound = errors.New("article not found")
+var ErrMatchArticlesNotFound = errors.New("article not found by query")
 
 const (
 	CommandArticleFindByID    = "SELECT id, title, content, user_id, created_at, updated_at FROM articles WHERE id = $1;"
@@ -124,7 +125,7 @@ func (d *PostgresArticleRepository) Delete(ctx context.Context, id uuid.UUID) er
 }
 
 func (d *PostgresArticleRepository) Search(ctx context.Context, query string) ([]model.Article, error) {
-	rows, err := d.db.QueryRows(ctx, CommandArticleSearch)
+	rows, err := d.db.QueryRows(ctx, CommandArticleSearch, query)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +146,14 @@ func (d *PostgresArticleRepository) Search(ctx context.Context, query string) ([
 			return nil, err
 		}
 		articles = append(articles, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(articles) == 0 {
+		return articles, ErrMatchArticlesNotFound
 	}
 
 	return articles, nil

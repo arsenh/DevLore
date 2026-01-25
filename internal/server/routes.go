@@ -138,7 +138,6 @@ func (r *Routes) getIP(request *http.Request) string {
 
 func (r *Routes) getAuthenticatedUserIfAny(ctx context.Context, writer http.ResponseWriter) *model.User {
 	if !r.isUserAuthenticated(ctx) {
-		// delete JWT token
 		r.deleteJWTTokenFromCookie(writer)
 		return nil
 	}
@@ -395,11 +394,11 @@ func (r *Routes) showSearchHandler(writer http.ResponseWriter, request *http.Req
 	query := strings.TrimSpace(request.URL.Query().Get("q"))
 
 	view, err := r.articleService.SearchArticlesByQuery(ctx, query)
-	view.UserName = r.getUserNameIfNotNil(user)
 	if err != nil {
 		templates.InternalServerError(writer, err)
 		return
 	}
+	view.UserName = r.getUserNameIfNotNil(user)
 	if err := templates.Render(writer, http.StatusOK, templates.SearchTemplate, view); err != nil {
 		templates.InternalServerError(writer, err)
 	}

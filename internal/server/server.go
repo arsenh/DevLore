@@ -55,6 +55,7 @@ func (s *HTTPServer) Start() {
 		Handler: s.routes,
 	}
 
+	logger.L().Infoln("Starting server on address: ", server.Addr)
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.L().Fatalln(err)
