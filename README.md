@@ -2,24 +2,6 @@
 
 A personal programming knowledge base — a web application for storing and organizing programming knowledge, recipes, tutorials, and code snippets. Users can create accounts, write articles, and search through their personal knowledge base.
 
----
-
-## Table of Contents
-
-1. [Project Overview](#project-overview)
-2. [Features](#features)
-3. [Tech Stack](#tech-stack)
-4. [Getting Started](#getting-started)
-
-   * [Prerequisites](#prerequisites)
-   * [Build & Run Standalone](#build--run-standalone)
-   * [Run with Docker Compose](#run-with-docker-compose)
-5. [Database Setup](#database-setup)
-6. [Environment Variables](#environment-variables)
-7. [License](#license)
-
----
-
 ## Project Overview
 
 DevLore is a web application that lets you maintain your own **programming knowledge base**. It supports user accounts, article creation and editing, and an organized way to keep technical notes and code snippets searchable.
